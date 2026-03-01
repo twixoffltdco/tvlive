@@ -18,7 +18,6 @@ import {
   X,
   Tv,
   Radio as RadioIcon,
-  Users,
   Eye
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -48,6 +47,7 @@ interface MediaContent {
   file_url: string;
   source_type: string | null;
   title: string;
+  is_24_7?: boolean;
 }
 
 interface ChatMessage {
@@ -61,10 +61,8 @@ interface ChatMessage {
   };
 }
 
-// Protected accounts that always take priority
 const PROTECTED_USERNAMES = new Set(["oinktech", "twixoff"]);
 
-// Garbage description patterns - filter these out aggressively
 const GARBAGE_DESCRIPTIONS = new Set([
   "да", "нет", "тест", "test", "канал", "channel", ".", "..", "...",
   "описание", "description", "1", "2", "3", "а", "б", "в",
@@ -76,13 +74,12 @@ const GARBAGE_DESCRIPTIONS = new Set([
   "test channel", "тестовый", "тестовый канал",
 ]);
 
-// Garbage words that indicate low-quality if they are the ENTIRE description
 const GARBAGE_PATTERNS = [
-  /^(.)\1{2,}$/,        // All same character (ааа, !!!, etc.)
-  /^\d+$/,              // Only numbers
-  /^[^a-zA-Zа-яА-ЯёЁ]+$/,  // No letters at all
-  /^.{1,4}$/,           // Less than 5 characters
-  /^(ха|хе|хи|ло|ке){2,}$/i, // Repeated syllables like хахаха
+  /^(.)\1{2,}$/,
+  /^\d+$/,
+  /^[^a-zA-Zа-яА-ЯёЁ]+$/,
+  /^.{1,4}$/,
+  /^(ха|хе|хи|ло|ке){2,}$/i,
 ];
 
 function isGarbageDescription(desc: string | null): boolean {
@@ -119,7 +116,8 @@ const Shorts = () => {
   const [mediaByChannel, setMediaByChannel] = useState<Record<string, MediaContent[]>>({});
   const [likedChannels, setLikedChannels] = useState<Set<string>>(new Set());
   const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [currentSourceIndex, setCurrentSourceIndex] = useState(0);
+  // Auto-cycle through media within a channel (continuous broadcast)
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [liveViewerCounts, setLiveViewerCounts] = useState<Record<string, number>>({});
   const [sessionId] = useState(() => `shorts-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
 
@@ -131,7 +129,6 @@ const Shorts = () => {
     scoreChannel,
   } = useShortsRecommendations();
 
-  // Fetch channels with deduplication & recommendation logic
   useEffect(() => {
     fetchChannels();
   }, [user]);
@@ -149,53 +146,48 @@ const Shorts = () => {
       .order("viewer_count", { ascending: false });
 
     if (!error && data) {
-      // Fetch media for all channels
       const channelIds = (data as any[]).map(c => c.id);
-      const { data: mediaData } = await supabase
-        .from("media_content")
-        .select("id, file_url, source_type, title, channel_id")
-        .in("channel_id", channelIds)
-        .order("created_at", { ascending: true });
+      
+      // Batch fetch media - only if we have channels
+      let mediaMap: Record<string, MediaContent[]> = {};
+      if (channelIds.length > 0) {
+        const { data: mediaData } = await supabase
+          .from("media_content")
+          .select("id, file_url, source_type, title, channel_id, is_24_7")
+          .in("channel_id", channelIds)
+          .order("created_at", { ascending: true });
 
-      const mediaMap: Record<string, MediaContent[]> = {};
-      if (mediaData) {
-        mediaData.forEach((m: any) => {
-          if (!mediaMap[m.channel_id]) mediaMap[m.channel_id] = [];
-          mediaMap[m.channel_id].push(m);
-        });
+        if (mediaData) {
+          mediaData.forEach((m: any) => {
+            if (!mediaMap[m.channel_id]) mediaMap[m.channel_id] = [];
+            mediaMap[m.channel_id].push(m);
+          });
+        }
       }
       setMediaByChannel(mediaMap);
 
-      // DEDUPLICATION: protected accounts (OinkTech/Twixoff) ALWAYS come first
-      // Later duplicates by other users are REMOVED
+      // Sort: protected first, then oldest
       const sorted = [...(data as any[])].sort((a, b) => {
         const aProtected = isProtectedUser(a?.profiles?.username || "");
         const bProtected = isProtectedUser(b?.profiles?.username || "");
         if (aProtected !== bProtected) return aProtected ? -1 : 1;
-        // Then by oldest first (originals)
-        const aTime = new Date(a.created_at).getTime();
-        const bTime = new Date(b.created_at).getTime();
-        if (aTime !== bTime) return aTime - bTime;
-        return (b.viewer_count || 0) - (a.viewer_count || 0);
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       });
 
+      // Deduplicate
       const seenTitles = new Set<string>();
       const seenSources = new Set<string>();
       
       const filtered = sorted.filter((ch) => {
-        // 1. Filter garbage descriptions
         if (isGarbageDescription(ch.description)) return false;
 
-        // 2. Must have at least one media source
         const chMedia = mediaMap[ch.id] || [];
         if (chMedia.length === 0) return false;
 
-        // 3. Check title duplicate
         const titleKey = `${ch.title?.toLowerCase().trim()}|${ch.channel_type}`;
         if (seenTitles.has(titleKey)) return false;
         seenTitles.add(titleKey);
         
-        // 4. Check source URL duplicate
         let hasDuplicateSource = false;
         for (const media of chMedia) {
           const sourceKey = media.file_url?.toLowerCase().trim();
@@ -210,7 +202,7 @@ const Shorts = () => {
         return true;
       });
 
-      // Apply personalized recommendations + viewer count sorting
+      // Apply personalized recommendations
       const scored = filtered.map((ch: any) => ({
         ...ch,
         _score: scoreChannel(ch),
@@ -235,17 +227,20 @@ const Shorts = () => {
     }
   }, [currentIndex, channels, trackView]);
 
-  // Register viewer and fetch live count for current channel
+  // Reset media index when switching channels
+  useEffect(() => {
+    setCurrentMediaIndex(0);
+  }, [currentIndex]);
+
+  // Register viewer and heartbeat
   useEffect(() => {
     const ch = channels[currentIndex];
     if (!ch) return;
 
     const channelId = ch.id;
 
-    // Register as viewer
     const register = async () => {
       try {
-        // Clean stale sessions
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
         await supabase
           .from("channel_viewers")
@@ -278,7 +273,6 @@ const Shorts = () => {
     register();
     fetchViewerCount();
 
-    // Heartbeat every 20s
     const heartbeat = setInterval(async () => {
       await supabase
         .from("channel_viewers")
@@ -289,7 +283,6 @@ const Shorts = () => {
 
     return () => {
       clearInterval(heartbeat);
-      // Remove viewer on leave
       supabase
         .from("channel_viewers")
         .delete()
@@ -321,7 +314,6 @@ const Shorts = () => {
     if (channels[currentIndex]) {
       fetchChatMessages(channels[currentIndex].id);
       const unsubscribe = subscribeToChat(channels[currentIndex].id);
-      setCurrentSourceIndex(0);
       return unsubscribe;
     }
   }, [currentIndex, channels]);
@@ -412,7 +404,6 @@ const Shorts = () => {
     setTouchStart(null);
   };
 
-  // Like channel
   const handleLike = async () => {
     if (!user || !channels[currentIndex]) return;
     
@@ -440,7 +431,6 @@ const Shorts = () => {
     }
   };
 
-  // Send message
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newMessage.trim() || !channels[currentIndex]) return;
@@ -456,7 +446,6 @@ const Shorts = () => {
     setNewMessage("");
   };
 
-  // Share
   const handleShare = async () => {
     if (!channels[currentIndex]) return;
     
@@ -469,6 +458,15 @@ const Shorts = () => {
       navigator.clipboard.writeText(`${window.location.origin}/channel/${channels[currentIndex].id}`);
       toast({ title: "Ссылка скопирована" });
     }
+  };
+
+  // When current media ends, go to next media in channel (continuous broadcast)
+  const handleMediaEnded = () => {
+    const sources = mediaByChannel[channels[currentIndex]?.id] || [];
+    if (sources.length > 1) {
+      setCurrentMediaIndex(prev => (prev + 1) % sources.length);
+    }
+    // If only 1 source, UniversalPlayer will loop automatically via autoPlay
   };
 
   if (loading) {
@@ -495,15 +493,10 @@ const Shorts = () => {
 
   const currentChannel = channels[currentIndex];
   const sourcesForChannel = mediaByChannel[currentChannel?.id] || [];
-  const safeSourceIndex = Math.min(currentSourceIndex, Math.max(0, sourcesForChannel.length - 1));
-  const currentMedia = sourcesForChannel[safeSourceIndex];
+  const safeMediaIndex = Math.min(currentMediaIndex, Math.max(0, sourcesForChannel.length - 1));
+  const currentMedia = sourcesForChannel[safeMediaIndex];
   const isLiked = likedChannels.has(currentChannel?.id);
   const currentLiveViewers = liveViewerCounts[currentChannel?.id] || currentChannel?.viewer_count || 0;
-
-  const cycleSource = () => {
-    if (sourcesForChannel.length <= 1) return;
-    setCurrentSourceIndex((prev) => (prev + 1) % sourcesForChannel.length);
-  };
 
   return (
     <div 
@@ -517,11 +510,11 @@ const Shorts = () => {
         <DataConsentBanner onAccept={acceptConsent} onDecline={declineConsent} />
       )}
 
-      {/* Video Player - Full Screen */}
+      {/* Video Player - Full Screen continuous broadcast */}
       <div className="absolute inset-0">
         {currentMedia ? (
           <UniversalPlayer
-            key={`shorts-${currentMedia.id}-${safeSourceIndex}`}
+            key={`shorts-${currentChannel.id}-${currentMedia.id}-${safeMediaIndex}`}
             src={currentMedia.file_url}
             sourceType={(currentMedia.source_type as SourceType) || "mp4"}
             title={currentMedia.title}
@@ -529,6 +522,7 @@ const Shorts = () => {
             autoPlay={true}
             muted={muted}
             useProxy={true}
+            onEnded={handleMediaEnded}
             className="w-full h-full object-cover"
           />
         ) : (
@@ -576,53 +570,38 @@ const Shorts = () => {
             <Eye className="w-3 h-3" />
             <span className="text-xs font-medium">{currentLiveViewers} онлайн</span>
           </div>
+          {sourcesForChannel.length > 1 && (
+            <span className="text-white/50 text-xs">
+              {safeMediaIndex + 1}/{sourcesForChannel.length}
+            </span>
+          )}
         </div>
-
-        {sourcesForChannel.length > 1 && (
-          <div className="mt-3">
-            <Button type="button" variant="secondary" size="sm" onClick={cycleSource}>
-              Источник {safeSourceIndex + 1}/{sourcesForChannel.length}
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Actions - Right Side */}
       <div className="absolute right-4 bottom-24 flex flex-col items-center gap-6 z-10">
-        <button
-          onClick={handleLike}
-          className="flex flex-col items-center"
-        >
+        <button onClick={handleLike} className="flex flex-col items-center">
           <div className={`p-3 rounded-full ${isLiked ? "bg-destructive" : "bg-white/20"}`}>
             <Heart className={`w-6 h-6 ${isLiked ? "text-white fill-white" : "text-white"}`} />
           </div>
           <span className="text-white text-xs mt-1">Лайк</span>
         </button>
 
-        <button
-          onClick={() => setShowChat(!showChat)}
-          className="flex flex-col items-center"
-        >
+        <button onClick={() => setShowChat(!showChat)} className="flex flex-col items-center">
           <div className={`p-3 rounded-full ${showChat ? "bg-primary" : "bg-white/20"}`}>
             <MessageCircle className="w-6 h-6 text-white" />
           </div>
           <span className="text-white text-xs mt-1">Чат</span>
         </button>
 
-        <button
-          onClick={handleShare}
-          className="flex flex-col items-center"
-        >
+        <button onClick={handleShare} className="flex flex-col items-center">
           <div className="p-3 rounded-full bg-white/20">
             <Share2 className="w-6 h-6 text-white" />
           </div>
           <span className="text-white text-xs mt-1">Поделиться</span>
         </button>
 
-        <button
-          onClick={() => setMuted(!muted)}
-          className="flex flex-col items-center"
-        >
+        <button onClick={() => setMuted(!muted)} className="flex flex-col items-center">
           <div className="p-3 rounded-full bg-white/20">
             {muted ? (
               <VolumeX className="w-6 h-6 text-white" />
@@ -637,18 +616,12 @@ const Shorts = () => {
       {/* Navigation Arrows */}
       <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-10">
         {currentIndex > 0 && (
-          <button
-            onClick={() => setCurrentIndex(currentIndex - 1)}
-            className="p-2 rounded-full bg-white/20"
-          >
+          <button onClick={() => setCurrentIndex(currentIndex - 1)} className="p-2 rounded-full bg-white/20">
             <ChevronUp className="w-6 h-6 text-white" />
           </button>
         )}
         {currentIndex < channels.length - 1 && (
-          <button
-            onClick={() => setCurrentIndex(currentIndex + 1)}
-            className="p-2 rounded-full bg-white/20"
-          >
+          <button onClick={() => setCurrentIndex(currentIndex + 1)} className="p-2 rounded-full bg-white/20">
             <ChevronDown className="w-6 h-6 text-white" />
           </button>
         )}

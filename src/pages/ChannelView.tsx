@@ -700,6 +700,10 @@ const ChannelView = () => {
   if (!channel) return null;
 
   const isOwner = user?.id === channel.user_id;
+  const isAdmin = userRole === "admin";
+  const isHost = userRole === "host";
+  const canManage = isOwner || isAdmin; // admin has nearly full access
+  const canStream = isOwner || isAdmin || isHost; // host can only stream
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
@@ -908,26 +912,26 @@ const ChannelView = () => {
               <Dices className="w-3 h-3 md:w-4 md:h-4 mr-1" />
               <span className="hidden md:inline">Рулетка</span>
             </TabsTrigger>
-            {isOwner && <TabsTrigger value="media" className="text-xs md:text-sm">Медиа</TabsTrigger>}
-            {isOwner && (
+            {canManage && <TabsTrigger value="media" className="text-xs md:text-sm">Медиа</TabsTrigger>}
+            {canManage && (
               <TabsTrigger value="analytics" className="text-xs md:text-sm">
                 <BarChart3 className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                 <span className="hidden md:inline">Аналитика</span>
               </TabsTrigger>
             )}
-            {isOwner && (
+            {canManage && (
               <TabsTrigger value="settings" className="text-xs md:text-sm">
                 <Settings className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                 <span className="hidden md:inline">Настройки чата</span>
               </TabsTrigger>
             )}
-            {isOwner && (
+            {canManage && (
               <TabsTrigger value="bot" className="text-xs md:text-sm">
                 <Bot className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                 <span className="hidden md:inline">Бот</span>
               </TabsTrigger>
             )}
-            {isOwner && (
+            {canManage && (
               <TabsTrigger value="rewards" className="text-xs md:text-sm">
                 <Gift className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                 <span className="hidden md:inline">Награды</span>
@@ -939,22 +943,22 @@ const ChannelView = () => {
                 <span className="hidden md:inline">Участники</span>
               </TabsTrigger>
             )}
-            {isOwner && channel.streaming_method === "live" && (
+            {canStream && channel.streaming_method === "live" && (
               <TabsTrigger value="obs" className="text-xs md:text-sm">OBS</TabsTrigger>
             )}
-            {isOwner && channel.channel_type === "tv" && (
+            {canStream && channel.channel_type === "tv" && (
               <TabsTrigger value="webrtc" className="text-xs md:text-sm">
                 <Monitor className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                 <span className="hidden md:inline">Экран/Камера</span>
               </TabsTrigger>
             )}
-            {isOwner && channel.channel_type === "radio" && (
+            {canStream && channel.channel_type === "radio" && (
               <TabsTrigger value="voice" className="text-xs md:text-sm">
                 <Mic className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                 <span className="hidden md:inline">Голосовой эфир</span>
               </TabsTrigger>
             )}
-            {isOwner && (
+            {canManage && (
               <TabsTrigger value="ads" className="text-xs md:text-sm">
                 <Film className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                 <span className="hidden md:inline">Реклама</span>
@@ -1089,7 +1093,7 @@ const ChannelView = () => {
             </div>
           </TabsContent>
 
-          {isOwner && (
+          {canManage && (
             <TabsContent value="media" className="mt-4 md:mt-6">
               <MediaManager
                 channelId={channel.id}
@@ -1101,7 +1105,7 @@ const ChannelView = () => {
             </TabsContent>
           )}
 
-          {isOwner && (
+          {canManage && (
             <TabsContent value="analytics" className="mt-4 md:mt-6">
               <div className="space-y-6">
                 <RealtimeAnalytics channelId={channel.id} />
@@ -1110,27 +1114,27 @@ const ChannelView = () => {
             </TabsContent>
           )}
 
-          {isOwner && (
+          {canManage && (
             <TabsContent value="settings" className="mt-4 md:mt-6">
               <div className="bg-card border border-border rounded-lg p-4 md:p-6 space-y-6">
-                <ChatSettings channelId={channel.id} isOwner={isOwner} />
-                <ChannelProxySettings channelId={channel.id} canManage={isOwner} />
+                <ChatSettings channelId={channel.id} isOwner={canManage} />
+                <ChannelProxySettings channelId={channel.id} canManage={canManage} />
               </div>
             </TabsContent>
           )}
 
-          {isOwner && (
+          {canManage && (
             <TabsContent value="bot" className="mt-4 md:mt-6">
               <div className="bg-card border border-border rounded-lg p-4 md:p-6">
-                <ChatBot channelId={channel.id} isOwner={isOwner} />
+                <ChatBot channelId={channel.id} isOwner={canManage} />
               </div>
             </TabsContent>
           )}
 
-          {isOwner && (
+          {canManage && (
             <TabsContent value="rewards" className="mt-4 md:mt-6">
               <div className="bg-card border border-border rounded-lg p-4 md:p-6">
-                <PointsRewardsSystem channelId={channel.id} isOwner={isOwner} />
+                <PointsRewardsSystem channelId={channel.id} isOwner={canManage} />
               </div>
             </TabsContent>
           )}
@@ -1143,7 +1147,7 @@ const ChannelView = () => {
             </TabsContent>
           )}
 
-          {isOwner && (
+          {canManage && (
             <TabsContent value="ads" className="mt-4 md:mt-6">
               <div className="bg-card border border-border rounded-lg p-4 md:p-6">
                 <AdManager channelId={channel.id} channelType={channel.channel_type} />
