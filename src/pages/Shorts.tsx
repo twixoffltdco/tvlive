@@ -18,7 +18,8 @@ import {
   X,
   Tv,
   Radio as RadioIcon,
-  Eye
+  Eye,
+  RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import UniversalPlayer, { SourceType } from "@/components/UniversalPlayer";
@@ -61,43 +62,6 @@ interface ChatMessage {
   };
 }
 
-const PROTECTED_USERNAMES = new Set(["oinktech", "twixoff"]);
-
-const GARBAGE_DESCRIPTIONS = new Set([
-  "да", "нет", "тест", "test", "канал", "channel", ".", "..", "...",
-  "описание", "description", "1", "2", "3", "а", "б", "в",
-  "-", "--", "---", "ок", "ok", "хз", "лол", "lol", "asd",
-  "asdf", "qwerty", "123", "1234", "12345", "hello", "привет",
-  "мой канал", "my channel", "fff", "ааа", "yyy", "xxx", "zzz",
-  "new channel", "без названия", "untitled", "no description",
-  "lolol", "kek", "кек", "пук", "хех", "абв", "abc", "qqq",
-  "test channel", "тестовый", "тестовый канал",
-]);
-
-const GARBAGE_PATTERNS = [
-  /^(.)\1{2,}$/,
-  /^\d+$/,
-  /^[^a-zA-Zа-яА-ЯёЁ]+$/,
-  /^.{1,4}$/,
-  /^(ха|хе|хи|ло|ке){2,}$/i,
-];
-
-function isGarbageDescription(desc: string | null): boolean {
-  if (!desc) return true;
-  const trimmed = desc.trim();
-  if (trimmed.length < 5) return true;
-  if (GARBAGE_DESCRIPTIONS.has(trimmed.toLowerCase())) return true;
-  for (const pattern of GARBAGE_PATTERNS) {
-    if (pattern.test(trimmed)) return true;
-  }
-  return false;
-}
-
-function isProtectedUser(username: string): boolean {
-  const lower = username.toLowerCase().trim();
-  return Array.from(PROTECTED_USERNAMES).some(p => lower === p || lower.startsWith(p));
-}
-
 const Shorts = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -116,10 +80,10 @@ const Shorts = () => {
   const [mediaByChannel, setMediaByChannel] = useState<Record<string, MediaContent[]>>({});
   const [likedChannels, setLikedChannels] = useState<Set<string>>(new Set());
   const [touchStart, setTouchStart] = useState<number | null>(null);
-  // Auto-cycle through media within a channel (continuous broadcast)
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [liveViewerCounts, setLiveViewerCounts] = useState<Record<string, number>>({});
   const [sessionId] = useState(() => `shorts-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
+  const [playerError, setPlayerError] = useState(false);
 
   const {
     showConsentBanner,
@@ -136,6 +100,7 @@ const Shorts = () => {
   const fetchChannels = async () => {
     setLoading(true);
     
+    // Step 1: Fetch all non-hidden channels
     const { data, error } = await supabase
       .from("channels")
       .select(`
@@ -146,67 +111,58 @@ const Shorts = () => {
       .order("viewer_count", { ascending: false })
       .limit(100);
 
-    if (!error && data) {
-      // Sort: protected first, then oldest
-      const sorted = [...(data as any[])].sort((a, b) => {
-        const aProtected = isProtectedUser(a?.profiles?.username || "");
-        const bProtected = isProtectedUser(b?.profiles?.username || "");
-        if (aProtected !== bProtected) return aProtected ? -1 : 1;
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      });
+    if (error || !data) {
+      setLoading(false);
+      return;
+    }
 
-      // Deduplicate & filter garbage descriptions
-      const seenTitles = new Set<string>();
-      const filtered = sorted.filter((ch) => {
-        const prot = isProtectedUser(ch?.profiles?.username || "");
-        if (!prot && isGarbageDescription(ch.description)) return false;
-        const titleKey = `${ch.title?.toLowerCase().trim()}|${ch.channel_type}`;
-        if (seenTitles.has(titleKey)) return false;
-        seenTitles.add(titleKey);
-        return true;
-      });
+    // Step 2: Fetch ALL media in one go for efficiency
+    const channelIds = data.map((c: any) => c.id);
+    let mediaMap: Record<string, MediaContent[]> = {};
+    
+    if (channelIds.length > 0) {
+      for (let i = 0; i < channelIds.length; i += 30) {
+        const batch = channelIds.slice(i, i + 30);
+        const { data: mediaData } = await supabase
+          .from("media_content")
+          .select("id, file_url, source_type, title, channel_id, is_24_7")
+          .in("channel_id", batch)
+          .order("created_at", { ascending: true });
 
-      // Batch fetch media only for filtered channels
-      const channelIds = filtered.map(c => c.id);
-      let mediaMap: Record<string, MediaContent[]> = {};
-      
-      if (channelIds.length > 0) {
-        // Batch in groups of 30 to avoid URL length limits
-        for (let i = 0; i < channelIds.length; i += 30) {
-          const batch = channelIds.slice(i, i + 30);
-          const { data: mediaData } = await supabase
-            .from("media_content")
-            .select("id, file_url, source_type, title, channel_id, is_24_7")
-            .in("channel_id", batch)
-            .order("created_at", { ascending: true });
-
-          if (mediaData) {
-            mediaData.forEach((m: any) => {
-              if (!mediaMap[m.channel_id]) mediaMap[m.channel_id] = [];
-              mediaMap[m.channel_id].push(m);
-            });
-          }
+        if (mediaData) {
+          mediaData.forEach((m: any) => {
+            if (!mediaMap[m.channel_id]) mediaMap[m.channel_id] = [];
+            mediaMap[m.channel_id].push(m);
+          });
         }
       }
-      setMediaByChannel(mediaMap);
-
-      // Only keep channels that have media
-      const withMedia = filtered.filter(ch => (mediaMap[ch.id] || []).length > 0);
-
-      // Apply personalized recommendations
-      const scored = withMedia.map((ch: any) => ({
-        ...ch,
-        _score: scoreChannel(ch),
-      }));
-
-      scored.sort((a: any, b: any) => {
-        if (a._score !== b._score) return b._score - a._score;
-        return (b.viewer_count || 0) - (a.viewer_count || 0);
-      });
-      
-      setChannels(scored);
     }
+    setMediaByChannel(mediaMap);
+
+    // Step 3: Only keep channels that have at least 1 media item — no other filtering
+    const withMedia = (data as any[]).filter(ch => (mediaMap[ch.id] || []).length > 0);
+
+    // Step 4: Deduplicate by title+type
+    const seenTitles = new Set<string>();
+    const deduped = withMedia.filter((ch) => {
+      const key = `${ch.title?.toLowerCase().trim()}|${ch.channel_type}`;
+      if (seenTitles.has(key)) return false;
+      seenTitles.add(key);
+      return true;
+    });
+
+    // Step 5: Apply personalized recommendations scoring
+    const scored = deduped.map((ch: any) => ({
+      ...ch,
+      _score: scoreChannel(ch),
+    }));
+
+    scored.sort((a: any, b: any) => {
+      if (a._score !== b._score) return b._score - a._score;
+      return (b.viewer_count || 0) - (a.viewer_count || 0);
+    });
     
+    setChannels(scored);
     setLoading(false);
   };
 
@@ -218,9 +174,10 @@ const Shorts = () => {
     }
   }, [currentIndex, channels, trackView]);
 
-  // Reset media index when switching channels
+  // Reset media index and error when switching channels
   useEffect(() => {
     setCurrentMediaIndex(0);
+    setPlayerError(false);
   }, [currentIndex]);
 
   // Register viewer and heartbeat
@@ -457,7 +414,20 @@ const Shorts = () => {
     if (sources.length > 1) {
       setCurrentMediaIndex(prev => (prev + 1) % sources.length);
     }
-    // If only 1 source, UniversalPlayer will loop automatically via autoPlay
+  };
+
+  // On player error, skip to next media or next channel
+  const handlePlayerError = () => {
+    const sources = mediaByChannel[channels[currentIndex]?.id] || [];
+    if (sources.length > 1 && currentMediaIndex < sources.length - 1) {
+      // Try next media in this channel
+      setCurrentMediaIndex(prev => prev + 1);
+    } else if (currentIndex < channels.length - 1) {
+      // Skip to next channel
+      setCurrentIndex(prev => prev + 1);
+    } else {
+      setPlayerError(true);
+    }
   };
 
   if (loading) {
@@ -474,9 +444,13 @@ const Shorts = () => {
   if (channels.length === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Tv className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-          <p>Нет доступных каналов</p>
+        <div className="text-center space-y-4">
+          <Tv className="w-12 h-12 mx-auto text-muted-foreground" />
+          <p className="text-muted-foreground">Нет доступных каналов с медиа</p>
+          <Button variant="outline" onClick={() => fetchChannels()}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Обновить
+          </Button>
         </div>
       </div>
     );
@@ -504,18 +478,29 @@ const Shorts = () => {
       {/* Video Player - Full Screen continuous broadcast */}
       <div className="absolute inset-0">
         {currentMedia ? (
-          <UniversalPlayer
-            key={`shorts-${currentChannel.id}-${currentMedia.id}-${safeMediaIndex}`}
-            src={currentMedia.file_url}
-            sourceType={(currentMedia.source_type as SourceType) || "mp4"}
-            title={currentMedia.title}
-            channelType={currentChannel.channel_type}
-            autoPlay={true}
-            muted={muted}
-            useProxy={true}
-            onEnded={handleMediaEnded}
-            className="w-full h-full object-cover"
-          />
+          playerError ? (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-black/80 text-white gap-4">
+              <p className="text-lg">Ошибка воспроизведения</p>
+              <Button variant="secondary" onClick={() => { setPlayerError(false); setCurrentMediaIndex(0); }}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Попробовать снова
+              </Button>
+            </div>
+          ) : (
+            <UniversalPlayer
+              key={`shorts-${currentChannel.id}-${currentMedia.id}-${safeMediaIndex}`}
+              src={currentMedia.file_url}
+              sourceType={(currentMedia.source_type as SourceType) || "mp4"}
+              title={currentMedia.title}
+              channelType={currentChannel.channel_type}
+              autoPlay={true}
+              muted={muted}
+              useProxy={true}
+              onEnded={handleMediaEnded}
+              onError={handlePlayerError}
+              className="w-full h-full object-cover"
+            />
+          )
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-background to-primary/20">
             {currentChannel.channel_type === "tv" ? (
@@ -540,9 +525,6 @@ const Shorts = () => {
           <div>
             <p className="font-semibold text-white text-sm">
               @{currentChannel.profiles?.username}
-              {isProtectedUser(currentChannel.profiles?.username || "") && (
-                <span className="ml-1 text-xs">✅</span>
-              )}
             </p>
             <Badge variant="secondary" className="text-xs">
               {currentChannel.channel_type === "tv" ? "TV" : "Радио"}
