@@ -4,12 +4,29 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Crown, Dices, Palette, Code, Shield, Ban, Gift, Tv, Radio, Users, Globe, 
   Sparkles, Bell, Play, Settings, Monitor, Mic, Video, List, Search, Heart,
-  ExternalLink, Layers, Lock, Zap, MessageSquare, Clock, Star
+  ExternalLink, Layers, Lock, Zap, MessageSquare, Clock, Star, Scissors
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Changelog = () => {
   const updates = [
+    {
+      version: "3.0.0",
+      date: "Март 2026",
+      title: "StreamLiveTV 3.0.0 Release — Клипы, Open API, PlayerJS, Стабилизация",
+      description: "Полноценный Release: Twitch-клипы, открытый API каналов, PlayerJS плеер, баннеры, Y2038 совместимость, стабильная Shorts-лента.",
+      features: [
+        { icon: Scissors, text: "Клипы каналов (Twitch-стиль) — создание, просмотр, шаринг" },
+        { icon: Globe, text: "Open API /public-channels — публичный эндпоинт для внешних сайтов" },
+        { icon: Play, text: "PlayerJS CDN — интеграция с OinkTechLtd/cdnplayerjs для m3u/txt плейлистов" },
+        { icon: Sparkles, text: "Двойной баннер My Oink TV + Ultra Aggregator (60 сек)" },
+        { icon: Shield, text: "Beta → Release: убраны все Beta-метки, стабилизация всех модулей" },
+        { icon: Lock, text: "Y2038 совместимость: все даты используют безопасные 64-bit типы" },
+        { icon: Zap, text: "Shorts: исправлен свайп и непрерывное воспроизведение (TikTok UX)" },
+        { icon: MessageSquare, text: "Чат: серверная блокировка через триггер enforce_chat_block" },
+        { icon: Crown, text: "Платный контент: PaidContentGate с блокировкой для неподписанных" },
+      ],
+    },
     {
       version: "2.0.1",
       date: "Январь 2026",

@@ -84,6 +84,7 @@ const Shorts = () => {
   const [liveViewerCounts, setLiveViewerCounts] = useState<Record<string, number>>({});
   const [sessionId] = useState(() => `shorts-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
   const [playerError, setPlayerError] = useState(false);
+  const [playerLoaded, setPlayerLoaded] = useState(false);
 
   const {
     showConsentBanner,
@@ -100,7 +101,6 @@ const Shorts = () => {
   const fetchChannels = async () => {
     setLoading(true);
     
-    // Step 1: Fetch all non-hidden channels
     const { data, error } = await supabase
       .from("channels")
       .select(`
@@ -116,7 +116,6 @@ const Shorts = () => {
       return;
     }
 
-    // Step 2: Fetch ALL media in one go for efficiency
     const channelIds = data.map((c: any) => c.id);
     let mediaMap: Record<string, MediaContent[]> = {};
     
@@ -139,10 +138,8 @@ const Shorts = () => {
     }
     setMediaByChannel(mediaMap);
 
-    // Step 3: Only keep channels that have at least 1 media item — no other filtering
     const withMedia = (data as any[]).filter(ch => (mediaMap[ch.id] || []).length > 0);
 
-    // Step 4: Deduplicate by title+type
     const seenTitles = new Set<string>();
     const deduped = withMedia.filter((ch) => {
       const key = `${ch.title?.toLowerCase().trim()}|${ch.channel_type}`;
@@ -151,7 +148,6 @@ const Shorts = () => {
       return true;
     });
 
-    // Step 5: Apply personalized recommendations scoring
     const scored = deduped.map((ch: any) => ({
       ...ch,
       _score: scoreChannel(ch),
@@ -166,7 +162,6 @@ const Shorts = () => {
     setLoading(false);
   };
 
-  // Track views for recommendations
   useEffect(() => {
     const ch = channels[currentIndex];
     if (ch) {
@@ -174,10 +169,11 @@ const Shorts = () => {
     }
   }, [currentIndex, channels, trackView]);
 
-  // Reset media index and error when switching channels
+  // Reset media index, error, and loaded state when switching channels
   useEffect(() => {
     setCurrentMediaIndex(0);
     setPlayerError(false);
+    setPlayerLoaded(false);
   }, [currentIndex]);
 
   // Register viewer and heartbeat
@@ -190,12 +186,7 @@ const Shorts = () => {
     const register = async () => {
       try {
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-        await supabase
-          .from("channel_viewers")
-          .delete()
-          .eq("channel_id", channelId)
-          .lt("last_seen", fiveMinutesAgo);
-
+        await supabase.from("channel_viewers").delete().eq("channel_id", channelId).lt("last_seen", fiveMinutesAgo);
         await supabase.from("channel_viewers").insert({
           channel_id: channelId,
           user_id: user?.id || null,
@@ -214,7 +205,6 @@ const Shorts = () => {
         .select("*", { count: "exact", head: true })
         .eq("channel_id", channelId)
         .gte("last_seen", fiveMinutesAgo);
-      
       setLiveViewerCounts(prev => ({ ...prev, [channelId]: Math.max(1, count || 0) }));
     };
 
@@ -222,42 +212,26 @@ const Shorts = () => {
     fetchViewerCount();
 
     const heartbeat = setInterval(async () => {
-      await supabase
-        .from("channel_viewers")
-        .update({ last_seen: new Date().toISOString() })
-        .eq("session_id", sessionId);
+      await supabase.from("channel_viewers").update({ last_seen: new Date().toISOString() }).eq("session_id", sessionId);
       fetchViewerCount();
     }, 20000);
 
     return () => {
       clearInterval(heartbeat);
-      supabase
-        .from("channel_viewers")
-        .delete()
-        .eq("session_id", sessionId)
-        .then(() => {});
+      supabase.from("channel_viewers").delete().eq("session_id", sessionId).then(() => {});
     };
   }, [currentIndex, channels, user?.id, sessionId]);
 
-  // Fetch user likes
   useEffect(() => {
     if (user) fetchLikes();
   }, [user]);
 
   const fetchLikes = async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from("likes")
-      .select("channel_id")
-      .eq("user_id", user.id)
-      .eq("is_like", true);
-    
-    if (data) {
-      setLikedChannels(new Set(data.map(l => l.channel_id)));
-    }
+    const { data } = await supabase.from("likes").select("channel_id").eq("user_id", user.id).eq("is_like", true);
+    if (data) setLikedChannels(new Set(data.map(l => l.channel_id)));
   };
 
-  // Fetch chat messages for current channel
   useEffect(() => {
     if (channels[currentIndex]) {
       fetchChatMessages(channels[currentIndex].id);
@@ -266,7 +240,6 @@ const Shorts = () => {
     }
   }, [currentIndex, channels]);
 
-  // Auto-scroll chat
   useEffect(() => {
     if (!showChat) return;
     const el = chatListRef.current;
@@ -277,51 +250,26 @@ const Shorts = () => {
   const fetchChatMessages = async (channelId: string) => {
     const { data } = await supabase
       .from("chat_messages")
-      .select(`
-        id, message, user_id, created_at,
-        profiles:user_id (username, avatar_url)
-      `)
+      .select(`id, message, user_id, created_at, profiles:user_id (username, avatar_url)`)
       .eq("channel_id", channelId)
       .order("created_at", { ascending: false })
       .limit(50);
-    
-    if (data) {
-      setChatMessages((data as any).reverse());
-    }
+    if (data) setChatMessages((data as any).reverse());
   };
 
   const subscribeToChat = (channelId: string) => {
     const channel = supabase
       .channel(`shorts-chat-${channelId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "chat_messages",
-          filter: `channel_id=eq.${channelId}`,
-        },
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `channel_id=eq.${channelId}` },
         async (payload) => {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("username, avatar_url")
-            .eq("id", payload.new.user_id)
-            .single();
-          
-          setChatMessages(prev => [...prev, {
-            ...payload.new as any,
-            profiles: profile,
-          }]);
+          const { data: profile } = await supabase.from("profiles").select("username, avatar_url").eq("id", payload.new.user_id).single();
+          setChatMessages(prev => [...prev, { ...payload.new as any, profiles: profile }]);
         }
-      )
-      .subscribe();
-    
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      ).subscribe();
+    return () => { supabase.removeChannel(channel); };
   };
 
-  // Swipe handling
+  // Swipe handling — only navigate if chat is closed
   const handleTouchStart = (e: React.TouchEvent) => {
     if (showChat) return;
     const target = e.target as unknown as Node;
@@ -332,49 +280,32 @@ const Shorts = () => {
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (showChat) return;
     const target = e.target as unknown as Node;
-    if (chatRootRef.current?.contains(target)) {
-      setTouchStart(null);
-      return;
-    }
+    if (chatRootRef.current?.contains(target)) { setTouchStart(null); return; }
     if (!touchStart) return;
     
     const touchEnd = e.changedTouches[0].clientY;
     const diff = touchStart - touchEnd;
     
-    if (Math.abs(diff) > 50) {
+    if (Math.abs(diff) > 80) {
       if (diff > 0 && currentIndex < channels.length - 1) {
         setCurrentIndex(currentIndex + 1);
       } else if (diff < 0 && currentIndex > 0) {
         setCurrentIndex(currentIndex - 1);
       }
     }
-    
     setTouchStart(null);
   };
 
   const handleLike = async () => {
     if (!user || !channels[currentIndex]) return;
-    
     const channelId = channels[currentIndex].id;
     const isLiked = likedChannels.has(channelId);
     
     if (isLiked) {
-      await supabase
-        .from("likes")
-        .delete()
-        .eq("channel_id", channelId)
-        .eq("user_id", user.id);
-      
-      setLikedChannels(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(channelId);
-        return newSet;
-      });
+      await supabase.from("likes").delete().eq("channel_id", channelId).eq("user_id", user.id);
+      setLikedChannels(prev => { const s = new Set(prev); s.delete(channelId); return s; });
     } else {
-      await supabase
-        .from("likes")
-        .insert({ channel_id: channelId, user_id: user.id, is_like: true });
-      
+      await supabase.from("likes").insert({ channel_id: channelId, user_id: user.id, is_like: true });
       setLikedChannels(prev => new Set([...prev, channelId]));
     }
   };
@@ -382,21 +313,19 @@ const Shorts = () => {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newMessage.trim() || !channels[currentIndex]) return;
-    
-    await supabase
-      .from("chat_messages")
-      .insert({
-        channel_id: channels[currentIndex].id,
-        user_id: user.id,
-        message: newMessage.trim(),
-      });
-    
+    const { error } = await supabase.from("chat_messages").insert({
+      channel_id: channels[currentIndex].id,
+      user_id: user.id,
+      message: newMessage.trim(),
+    });
+    if (error) {
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
+    }
     setNewMessage("");
   };
 
   const handleShare = async () => {
     if (!channels[currentIndex]) return;
-    
     try {
       await navigator.share({
         title: channels[currentIndex].title,
@@ -408,7 +337,7 @@ const Shorts = () => {
     }
   };
 
-  // When current media ends, go to next media in channel (continuous broadcast)
+  // Continuous broadcast: cycle through media
   const handleMediaEnded = () => {
     const sources = mediaByChannel[channels[currentIndex]?.id] || [];
     if (sources.length > 1) {
@@ -416,19 +345,17 @@ const Shorts = () => {
     }
   };
 
-  // On player error, skip to next media or next channel
-  const handlePlayerError = () => {
+  // On player error, try next media or next channel
+  const handlePlayerError = useCallback(() => {
     const sources = mediaByChannel[channels[currentIndex]?.id] || [];
     if (sources.length > 1 && currentMediaIndex < sources.length - 1) {
-      // Try next media in this channel
       setCurrentMediaIndex(prev => prev + 1);
     } else if (currentIndex < channels.length - 1) {
-      // Skip to next channel
       setCurrentIndex(prev => prev + 1);
     } else {
       setPlayerError(true);
     }
-  };
+  }, [channels, currentIndex, currentMediaIndex, mediaByChannel]);
 
   if (loading) {
     return (
@@ -470,7 +397,6 @@ const Shorts = () => {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Consent Banner */}
       {showConsentBanner && (
         <DataConsentBanner onAccept={acceptConsent} onDecline={declineConsent} />
       )}
@@ -536,7 +462,6 @@ const Shorts = () => {
           <p className="text-white/80 text-sm line-clamp-2">{currentChannel.description}</p>
         )}
         
-        {/* Live viewer count */}
         <div className="flex items-center gap-3 mt-2">
           <div className="flex items-center gap-1.5 bg-destructive/30 text-white px-2 py-0.5 rounded-full">
             <div className="w-1.5 h-1.5 bg-destructive rounded-full animate-pulse" />
@@ -576,11 +501,7 @@ const Shorts = () => {
 
         <button onClick={() => setMuted(!muted)} className="flex flex-col items-center">
           <div className="p-3 rounded-full bg-white/20">
-            {muted ? (
-              <VolumeX className="w-6 h-6 text-white" />
-            ) : (
-              <Volume2 className="w-6 h-6 text-white" />
-            )}
+            {muted ? <VolumeX className="w-6 h-6 text-white" /> : <Volume2 className="w-6 h-6 text-white" />}
           </div>
           <span className="text-white text-xs mt-1">{muted ? "Вкл" : "Выкл"}</span>
         </button>
@@ -603,10 +524,7 @@ const Shorts = () => {
       {/* Progress indicator */}
       <div className="absolute top-4 left-4 right-4 flex gap-1 z-10">
         {channels.slice(0, 10).map((_, idx) => (
-          <div
-            key={idx}
-            className={`flex-1 h-1 rounded-full ${idx === currentIndex ? "bg-white" : "bg-white/30"}`}
-          />
+          <div key={idx} className={`flex-1 h-1 rounded-full ${idx === currentIndex ? "bg-white" : "bg-white/30"}`} />
         ))}
       </div>
 
@@ -622,8 +540,7 @@ const Shorts = () => {
             <h4 className="text-white font-semibold flex items-center gap-2">
               Чат трансляции
               <span className="text-xs text-white/50 font-normal flex items-center gap-1">
-                <Eye className="w-3 h-3" />
-                {currentLiveViewers}
+                <Eye className="w-3 h-3" />{currentLiveViewers}
               </span>
             </h4>
             <button onClick={() => setShowChat(false)}>

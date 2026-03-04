@@ -56,7 +56,7 @@ const MediaManager = ({
   
   const [urlTitle, setUrlTitle] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
-  const [sourceType, setSourceType] = useState<"youtube" | "mp4" | "m3u8" | "ultra_aggregator" | "myoinktv">("mp4");
+  const [sourceType, setSourceType] = useState<"youtube" | "mp4" | "m3u8" | "ultra_aggregator" | "myoinktv" | "playerjs">("mp4");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
 
@@ -170,6 +170,9 @@ const MediaManager = ({
       else if (sourceType === "myoinktv") {
         fileType = "text/html";
         finalSourceType = "myoinktv";
+      } else if (sourceType === "playerjs") {
+        fileType = "text/html";
+        finalSourceType = "playerjs";
       }
 
       const { error } = await supabase.from("media_content").insert({
@@ -288,7 +291,7 @@ const MediaManager = ({
             <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
               <Link className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
               <p className="font-semibold mb-1">Добавить по URL</p>
-              <p className="text-xs text-muted-foreground">YouTube, MP4, M3U8, MyOinkTV</p>
+              <p className="text-xs text-muted-foreground">YouTube, MP4, M3U8, MyOinkTV, PlayerJS</p>
             </div>
           </DialogTrigger>
           <DialogContent>
@@ -312,6 +315,7 @@ const MediaManager = ({
                   <option value="youtube">YouTube видео</option>
                   <option value="ultra_aggregator">Ultra Aggregator</option>
                   <option value="myoinktv">MyOinkTV (Embed)</option>
+                  <option value="playerjs">PlayerJS (m3u / txt плейлист)</option>
                 </select>
                 {sourceType === "ultra_aggregator" && (
                   <p className="text-xs text-muted-foreground mt-1">Для Ultra Aggregator используйте параметр ?watch=ДОМЕН</p>
@@ -319,6 +323,11 @@ const MediaManager = ({
                 {sourceType === "myoinktv" && (
                   <p className="text-xs text-muted-foreground mt-1">
                     Вставьте только embed-ссылку: https://my-oink-tv.base44.app/embed?id=...
+                  </p>
+                )}
+                {sourceType === "playerjs" && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Вставьте прямую ссылку на поток, m3u/txt плейлист или JSON плейлист. Поддерживает m3u8, mp4, m3u, txt.
                   </p>
                 )}
               </div>
@@ -332,6 +341,7 @@ const MediaManager = ({
                     sourceType === "youtube" ? "https://youtube.com/watch?v=..." :
                     sourceType === "ultra_aggregator" ? "ultra_aggregator?watch=example.com" :
                     sourceType === "myoinktv" ? "https://my-oink-tv.base44.app/embed?id=..." :
+                    sourceType === "playerjs" ? "https://...m3u, .txt, .mp4 или JSON" :
                     "https://...mp4"
                   }
                 />

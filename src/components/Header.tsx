@@ -37,7 +37,7 @@ const Header = () => {
               StreamLiveTV
             </h1>
             <span className="px-2 py-0.5 text-xs font-semibold bg-primary/20 text-primary rounded-full border border-primary/30">
-              Beta
+              Release
             </span>
           </div>
         </Link>

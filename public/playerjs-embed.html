@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PlayerJS - StreamLiveTV</title>
+  <script src="https://raw.githubusercontent.com/nicedayzhu/playerjs/master/playerjs.js" type="text/javascript"></script>
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+    #playerjs { width: 100%; height: 100%; }
+    .loading { display: flex; align-items: center; justify-content: center; height: 100%; color: #fff; font-family: sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="playerjs"></div>
+  <script>
+    // PlayerJS CDN embed page
+    // Accepts URL params: file, title, poster, autoplay
+    // Supports: direct URLs, m3u playlists, txt playlists, JSON playlists
+    
+    function getParams() {
+      var params = {};
+      var search = location.search.substring(1) || location.hash.substring(1);
+      if (!search && location.href.indexOf('html?') > -1) {
+        search = location.href.substr(location.href.indexOf('html?') + 5);
+      }
+      var pairs = search.split('&');
+      for (var i = 0; i < pairs.length; i++) {
+        var idx = pairs[i].indexOf('=');
+        if (idx > -1) {
+          var key = pairs[i].substring(0, idx);
+          var val = decodeURIComponent(pairs[i].substring(idx + 1));
+          params[key] = val;
+        }
+      }
+      return params;
+    }
+
+    var params = getParams();
+    var config = { id: 'playerjs' };
+
+    // File/source
+    if (params.file) {
+      config.file = params.file;
+    }
+    if (params.title) {
+      config.title = params.title;
+    }
+    if (params.poster) {
+      config.poster = params.poster;
+    }
+    if (params.autoplay !== undefined) {
+      config.autoplay = params.autoplay === '1' || params.autoplay === 'true' ? 1 : 0;
+    } else {
+      config.autoplay = 1;
+    }
+
+    // PlayerJS playlist support: JSON array or txt/m3u URL
+    if (params.playlist) {
+      try {
+        config.file = JSON.parse(params.playlist);
+      } catch(e) {
+        config.file = params.playlist;
+      }
+    }
+
+    // Try loading PlayerJS from CDN
+    function initPlayer() {
+      if (typeof Playerjs !== 'undefined') {
+        new Playerjs(config);
+      } else {
+        // Fallback: use native video/audio
+        var container = document.getElementById('playerjs');
+        if (config.file) {
+          var fileStr = typeof config.file === 'string' ? config.file : '';
+          if (fileStr.match(/\.(mp3|wav|ogg|aac)(\?|$)/i)) {
+            container.innerHTML = '<audio src="' + fileStr + '" controls autoplay style="width:100%;margin-top:40vh;"></audio>';
+          } else {
+            container.innerHTML = '<video src="' + fileStr + '" controls autoplay playsinline style="width:100%;height:100%;object-fit:contain;"></video>';
+          }
+        } else {
+          container.innerHTML = '<div class="loading">No media source provided</div>';
+        }
+      }
+    }
+
+    // Load playerjs.js from CDN
+    var script = document.createElement('script');
+    script.src = 'https://oinktech.github.io/cdnplayerjs/playerjs.js';
+    script.onload = function() { initPlayer(); };
+    script.onerror = function() { 
+      // Try alternate CDN
+      var s2 = document.createElement('script');
+      s2.src = 'https://cdn.jsdelivr.net/gh/nicedayzhu/playerjs@master/playerjs.js';
+      s2.onload = function() { initPlayer(); };
+      s2.onerror = function() { initPlayer(); }; // fallback to native
+      document.head.appendChild(s2);
+    };
+    document.head.appendChild(script);
+  </script>
+</body>
+</html>
