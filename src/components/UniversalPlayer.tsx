@@ -7,7 +7,7 @@ import YouTubeIFramePlayer from "./YouTubeIFramePlayer";
 
 const ULTRA_AGGREGATOR_PATH = "/ultra-aggregator.html";
 
-export type SourceType = "mp4" | "m3u8" | "youtube" | "ultra_aggregator" | "upload" | "external_url" | "torrent" | "myoinktv" | "playerjs";
+export type SourceType = "mp4" | "m3u8" | "youtube" | "ultra_aggregator" | "upload" | "external_url" | "torrent" | "myoinktv" | "playerjs" | "smotrimfilms";
 
 interface UniversalPlayerProps {
   src: string;
@@ -47,6 +47,7 @@ const UniversalPlayer = ({
     if (sourceType === "ultra_aggregator") return "ultra_aggregator";
     if (sourceType === "myoinktv") return "myoinktv";
     if (sourceType === "playerjs") return "playerjs";
+    if (sourceType === "smotrimfilms") return "smotrimfilms";
     if (sourceType === "youtube" || src.includes("youtube.com") || src.includes("youtu.be")) return "youtube";
     if (src.includes(".m3u8") || src.endsWith(".m3u8")) return "m3u8";
     if (src.includes(".mp4") || src.includes(".webm") || src.includes(".mp3") || src.includes(".wav")) return "mp4";
@@ -83,7 +84,7 @@ const UniversalPlayer = ({
 
   // HLS / MP4 / Audio playback
   useEffect(() => {
-    if (actualType === "youtube" || actualType === "ultra_aggregator" || actualType === "myoinktv" || actualType === "playerjs") {
+    if (actualType === "youtube" || actualType === "ultra_aggregator" || actualType === "myoinktv" || actualType === "playerjs" || actualType === "smotrimfilms") {
       setIsLoading(false);
       return;
     }
@@ -274,6 +275,40 @@ const UniversalPlayer = ({
               <Button variant="outline" size="sm" onClick={retry} className="mt-2">
                 <RefreshCw className="w-4 h-4 mr-2" />Повторить
               </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // SmotrimFilms Player
+  if (actualType === "smotrimfilms") {
+    const embedSrc = src.startsWith("http") ? src : `https://smotrimfilms.lovable.app/kp/${src}`;
+    return (
+      <div className={`aspect-video bg-black rounded-lg overflow-hidden relative ${className}`}>
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+            <div className="text-center">
+              <Globe className="w-8 h-8 animate-pulse mx-auto mb-2 text-primary" />
+              <p className="text-sm text-muted-foreground">Загрузка SmotrimFilms...</p>
+            </div>
+          </div>
+        )}
+        <iframe
+          src={embedSrc}
+          className="w-full h-full border-0"
+          allow="fullscreen; autoplay; encrypted-media; picture-in-picture"
+          allowFullScreen
+          onLoad={() => setIsLoading(false)}
+          onError={() => { setError("SmotrimFilms недоступен"); setIsLoading(false); }}
+        />
+        {error && (
+          <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-20">
+            <div className="text-center text-destructive">
+              <AlertCircle className="w-12 h-12 mx-auto mb-2" />
+              <p>{error}</p>
+              <Button variant="outline" size="sm" onClick={retry} className="mt-2"><RefreshCw className="w-4 h-4 mr-2" />Повторить</Button>
             </div>
           </div>
         )}

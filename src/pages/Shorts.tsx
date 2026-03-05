@@ -7,19 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Heart, 
-  MessageCircle, 
-  Share2, 
-  Volume2, 
-  VolumeX,
-  ChevronUp,
-  ChevronDown,
-  Send,
-  X,
-  Tv,
-  Radio as RadioIcon,
-  Eye,
-  RefreshCw
+  Heart, MessageCircle, Share2, Volume2, VolumeX,
+  ChevronUp, ChevronDown, Send, X, Tv,
+  Radio as RadioIcon, Eye, RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import UniversalPlayer, { SourceType } from "@/components/UniversalPlayer";
@@ -83,38 +73,24 @@ const Shorts = () => {
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [liveViewerCounts, setLiveViewerCounts] = useState<Record<string, number>>({});
   const [sessionId] = useState(() => `shorts-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
-  const [playerError, setPlayerError] = useState(false);
-  const [playerLoaded, setPlayerLoaded] = useState(false);
 
   const {
-    showConsentBanner,
-    acceptConsent,
-    declineConsent,
-    trackView,
-    scoreChannel,
+    showConsentBanner, acceptConsent, declineConsent, trackView, scoreChannel,
   } = useShortsRecommendations();
 
-  useEffect(() => {
-    fetchChannels();
-  }, [user]);
+  useEffect(() => { fetchChannels(); }, [user]);
 
   const fetchChannels = async () => {
     setLoading(true);
     
     const { data, error } = await supabase
       .from("channels")
-      .select(`
-        id, title, description, thumbnail_url, channel_type, is_live, viewer_count, user_id, created_at, category_id,
-        profiles:user_id (username, avatar_url)
-      `)
+      .select(`id, title, description, thumbnail_url, channel_type, is_live, viewer_count, user_id, created_at, category_id, profiles:user_id (username, avatar_url)`)
       .eq("is_hidden", false)
       .order("viewer_count", { ascending: false })
       .limit(100);
 
-    if (error || !data) {
-      setLoading(false);
-      return;
-    }
+    if (error || !data) { setLoading(false); return; }
 
     const channelIds = data.map((c: any) => c.id);
     let mediaMap: Record<string, MediaContent[]> = {};
@@ -127,7 +103,6 @@ const Shorts = () => {
           .select("id, file_url, source_type, title, channel_id, is_24_7")
           .in("channel_id", batch)
           .order("created_at", { ascending: true });
-
         if (mediaData) {
           mediaData.forEach((m: any) => {
             if (!mediaMap[m.channel_id]) mediaMap[m.channel_id] = [];
@@ -139,7 +114,6 @@ const Shorts = () => {
     setMediaByChannel(mediaMap);
 
     const withMedia = (data as any[]).filter(ch => (mediaMap[ch.id] || []).length > 0);
-
     const seenTitles = new Set<string>();
     const deduped = withMedia.filter((ch) => {
       const key = `${ch.title?.toLowerCase().trim()}|${ch.channel_type}`;
@@ -148,11 +122,7 @@ const Shorts = () => {
       return true;
     });
 
-    const scored = deduped.map((ch: any) => ({
-      ...ch,
-      _score: scoreChannel(ch),
-    }));
-
+    const scored = deduped.map((ch: any) => ({ ...ch, _score: scoreChannel(ch) }));
     scored.sort((a: any, b: any) => {
       if (a._score !== b._score) return b._score - a._score;
       return (b.viewer_count || 0) - (a.viewer_count || 0);
@@ -164,67 +134,41 @@ const Shorts = () => {
 
   useEffect(() => {
     const ch = channels[currentIndex];
-    if (ch) {
-      trackView(ch.id, ch.category_id || null, ch.channel_type, ch.title);
-    }
+    if (ch) trackView(ch.id, ch.category_id || null, ch.channel_type, ch.title);
   }, [currentIndex, channels, trackView]);
 
-  // Reset media index, error, and loaded state when switching channels
+  // Reset media index when switching channels - NO auto-skip
   useEffect(() => {
     setCurrentMediaIndex(0);
-    setPlayerError(false);
-    setPlayerLoaded(false);
   }, [currentIndex]);
 
-  // Register viewer and heartbeat
+  // Viewer heartbeat
   useEffect(() => {
     const ch = channels[currentIndex];
     if (!ch) return;
-
     const channelId = ch.id;
-
     const register = async () => {
       try {
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
         await supabase.from("channel_viewers").delete().eq("channel_id", channelId).lt("last_seen", fiveMinutesAgo);
-        await supabase.from("channel_viewers").insert({
-          channel_id: channelId,
-          user_id: user?.id || null,
-          session_id: sessionId,
-          last_seen: new Date().toISOString(),
-        });
-      } catch (e) {
-        console.error("Viewer register error:", e);
-      }
+        await supabase.from("channel_viewers").insert({ channel_id: channelId, user_id: user?.id || null, session_id: sessionId, last_seen: new Date().toISOString() });
+      } catch (e) { console.error("Viewer register error:", e); }
     };
-
     const fetchViewerCount = async () => {
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-      const { count } = await supabase
-        .from("channel_viewers")
-        .select("*", { count: "exact", head: true })
-        .eq("channel_id", channelId)
-        .gte("last_seen", fiveMinutesAgo);
+      const { count } = await supabase.from("channel_viewers").select("*", { count: "exact", head: true }).eq("channel_id", channelId).gte("last_seen", fiveMinutesAgo);
       setLiveViewerCounts(prev => ({ ...prev, [channelId]: Math.max(1, count || 0) }));
     };
-
     register();
     fetchViewerCount();
-
     const heartbeat = setInterval(async () => {
       await supabase.from("channel_viewers").update({ last_seen: new Date().toISOString() }).eq("session_id", sessionId);
       fetchViewerCount();
     }, 20000);
-
-    return () => {
-      clearInterval(heartbeat);
-      supabase.from("channel_viewers").delete().eq("session_id", sessionId).then(() => {});
-    };
+    return () => { clearInterval(heartbeat); supabase.from("channel_viewers").delete().eq("session_id", sessionId).then(() => {}); };
   }, [currentIndex, channels, user?.id, sessionId]);
 
-  useEffect(() => {
-    if (user) fetchLikes();
-  }, [user]);
+  useEffect(() => { if (user) fetchLikes(); }, [user]);
 
   const fetchLikes = async () => {
     if (!user) return;
@@ -243,23 +187,16 @@ const Shorts = () => {
   useEffect(() => {
     if (!showChat) return;
     const el = chatListRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [chatMessages, showChat]);
 
   const fetchChatMessages = async (channelId: string) => {
-    const { data } = await supabase
-      .from("chat_messages")
-      .select(`id, message, user_id, created_at, profiles:user_id (username, avatar_url)`)
-      .eq("channel_id", channelId)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    const { data } = await supabase.from("chat_messages").select(`id, message, user_id, created_at, profiles:user_id (username, avatar_url)`).eq("channel_id", channelId).order("created_at", { ascending: false }).limit(50);
     if (data) setChatMessages((data as any).reverse());
   };
 
   const subscribeToChat = (channelId: string) => {
-    const channel = supabase
-      .channel(`shorts-chat-${channelId}`)
+    const channel = supabase.channel(`shorts-chat-${channelId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `channel_id=eq.${channelId}` },
         async (payload) => {
           const { data: profile } = await supabase.from("profiles").select("username, avatar_url").eq("id", payload.new.user_id).single();
@@ -269,7 +206,7 @@ const Shorts = () => {
     return () => { supabase.removeChannel(channel); };
   };
 
-  // Swipe handling — only navigate if chat is closed
+  // Swipe handling
   const handleTouchStart = (e: React.TouchEvent) => {
     if (showChat) return;
     const target = e.target as unknown as Node;
@@ -282,16 +219,11 @@ const Shorts = () => {
     const target = e.target as unknown as Node;
     if (chatRootRef.current?.contains(target)) { setTouchStart(null); return; }
     if (!touchStart) return;
-    
     const touchEnd = e.changedTouches[0].clientY;
     const diff = touchStart - touchEnd;
-    
     if (Math.abs(diff) > 80) {
-      if (diff > 0 && currentIndex < channels.length - 1) {
-        setCurrentIndex(currentIndex + 1);
-      } else if (diff < 0 && currentIndex > 0) {
-        setCurrentIndex(currentIndex - 1);
-      }
+      if (diff > 0 && currentIndex < channels.length - 1) setCurrentIndex(currentIndex + 1);
+      else if (diff < 0 && currentIndex > 0) setCurrentIndex(currentIndex - 1);
     }
     setTouchStart(null);
   };
@@ -300,7 +232,6 @@ const Shorts = () => {
     if (!user || !channels[currentIndex]) return;
     const channelId = channels[currentIndex].id;
     const isLiked = likedChannels.has(channelId);
-    
     if (isLiked) {
       await supabase.from("likes").delete().eq("channel_id", channelId).eq("user_id", user.id);
       setLikedChannels(prev => { const s = new Set(prev); s.delete(channelId); return s; });
@@ -313,49 +244,28 @@ const Shorts = () => {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newMessage.trim() || !channels[currentIndex]) return;
-    const { error } = await supabase.from("chat_messages").insert({
-      channel_id: channels[currentIndex].id,
-      user_id: user.id,
-      message: newMessage.trim(),
-    });
-    if (error) {
-      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
-    }
+    const { error } = await supabase.from("chat_messages").insert({ channel_id: channels[currentIndex].id, user_id: user.id, message: newMessage.trim() });
+    if (error) toast({ title: "Ошибка", description: error.message, variant: "destructive" });
     setNewMessage("");
   };
 
   const handleShare = async () => {
     if (!channels[currentIndex]) return;
     try {
-      await navigator.share({
-        title: channels[currentIndex].title,
-        url: `${window.location.origin}/channel/${channels[currentIndex].id}`,
-      });
+      await navigator.share({ title: channels[currentIndex].title, url: `${window.location.origin}/channel/${channels[currentIndex].id}` });
     } catch {
       navigator.clipboard.writeText(`${window.location.origin}/channel/${channels[currentIndex].id}`);
       toast({ title: "Ссылка скопирована" });
     }
   };
 
-  // Continuous broadcast: cycle through media
+  // Continuous broadcast: cycle through media - NO auto-skip on error
   const handleMediaEnded = () => {
     const sources = mediaByChannel[channels[currentIndex]?.id] || [];
     if (sources.length > 1) {
       setCurrentMediaIndex(prev => (prev + 1) % sources.length);
     }
   };
-
-  // On player error, try next media or next channel
-  const handlePlayerError = useCallback(() => {
-    const sources = mediaByChannel[channels[currentIndex]?.id] || [];
-    if (sources.length > 1 && currentMediaIndex < sources.length - 1) {
-      setCurrentMediaIndex(prev => prev + 1);
-    } else if (currentIndex < channels.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-    } else {
-      setPlayerError(true);
-    }
-  }, [channels, currentIndex, currentMediaIndex, mediaByChannel]);
 
   if (loading) {
     return (
@@ -375,8 +285,7 @@ const Shorts = () => {
           <Tv className="w-12 h-12 mx-auto text-muted-foreground" />
           <p className="text-muted-foreground">Нет доступных каналов с медиа</p>
           <Button variant="outline" onClick={() => fetchChannels()}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Обновить
+            <RefreshCw className="w-4 h-4 mr-2" />Обновить
           </Button>
         </div>
       </div>
@@ -391,42 +300,24 @@ const Shorts = () => {
   const currentLiveViewers = liveViewerCounts[currentChannel?.id] || currentChannel?.viewer_count || 0;
 
   return (
-    <div 
-      ref={containerRef}
-      className="fixed inset-0 bg-black overflow-hidden"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
-      {showConsentBanner && (
-        <DataConsentBanner onAccept={acceptConsent} onDecline={declineConsent} />
-      )}
+    <div ref={containerRef} className="fixed inset-0 bg-black overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      {showConsentBanner && <DataConsentBanner onAccept={acceptConsent} onDecline={declineConsent} />}
 
-      {/* Video Player - Full Screen continuous broadcast */}
+      {/* Video Player */}
       <div className="absolute inset-0">
         {currentMedia ? (
-          playerError ? (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-black/80 text-white gap-4">
-              <p className="text-lg">Ошибка воспроизведения</p>
-              <Button variant="secondary" onClick={() => { setPlayerError(false); setCurrentMediaIndex(0); }}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Попробовать снова
-              </Button>
-            </div>
-          ) : (
-            <UniversalPlayer
-              key={`shorts-${currentChannel.id}-${currentMedia.id}-${safeMediaIndex}`}
-              src={currentMedia.file_url}
-              sourceType={(currentMedia.source_type as SourceType) || "mp4"}
-              title={currentMedia.title}
-              channelType={currentChannel.channel_type}
-              autoPlay={true}
-              muted={muted}
-              useProxy={true}
-              onEnded={handleMediaEnded}
-              onError={handlePlayerError}
-              className="w-full h-full object-cover"
-            />
-          )
+          <UniversalPlayer
+            key={`shorts-${currentChannel.id}-${currentMedia.id}-${safeMediaIndex}`}
+            src={currentMedia.file_url}
+            sourceType={(currentMedia.source_type as SourceType) || "mp4"}
+            title={currentMedia.title}
+            channelType={currentChannel.channel_type}
+            autoPlay={true}
+            muted={muted}
+            useProxy={true}
+            onEnded={handleMediaEnded}
+            className="w-full h-full object-cover"
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-background to-primary/20">
             {currentChannel.channel_type === "tv" ? (
@@ -441,7 +332,21 @@ const Shorts = () => {
       {/* Overlay Gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80 pointer-events-none" />
 
-      {/* Channel Info - Bottom Left */}
+      {/* Navigation Arrows */}
+      <div className="absolute top-1/2 -translate-y-1/2 right-4 flex flex-col gap-4 z-20">
+        {currentIndex > 0 && (
+          <button onClick={() => setCurrentIndex(currentIndex - 1)} className="p-2 bg-white/20 rounded-full">
+            <ChevronUp className="w-5 h-5 text-white" />
+          </button>
+        )}
+        {currentIndex < channels.length - 1 && (
+          <button onClick={() => setCurrentIndex(currentIndex + 1)} className="p-2 bg-white/20 rounded-full">
+            <ChevronDown className="w-5 h-5 text-white" />
+          </button>
+        )}
+      </div>
+
+      {/* Channel Info */}
       <div className="absolute bottom-20 left-4 right-20 z-10">
         <div className="flex items-center gap-3 mb-3">
           <Avatar className="w-10 h-10 border-2 border-primary">
@@ -449,34 +354,22 @@ const Shorts = () => {
             <AvatarFallback>{currentChannel.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-semibold text-white text-sm">
-              @{currentChannel.profiles?.username}
-            </p>
-            <Badge variant="secondary" className="text-xs">
-              {currentChannel.channel_type === "tv" ? "TV" : "Радио"}
-            </Badge>
+            <p className="font-semibold text-white text-sm">@{currentChannel.profiles?.username}</p>
+            <Badge variant="secondary" className="text-xs">{currentChannel.channel_type === "tv" ? "TV" : "Радио"}</Badge>
           </div>
         </div>
         <h3 className="text-white font-bold text-lg mb-1">{currentChannel.title}</h3>
-        {currentChannel.description && (
-          <p className="text-white/80 text-sm line-clamp-2">{currentChannel.description}</p>
-        )}
-        
+        {currentChannel.description && <p className="text-white/80 text-sm line-clamp-2">{currentChannel.description}</p>}
         <div className="flex items-center gap-3 mt-2">
           <div className="flex items-center gap-1.5 bg-destructive/30 text-white px-2 py-0.5 rounded-full">
             <div className="w-1.5 h-1.5 bg-destructive rounded-full animate-pulse" />
-            <Eye className="w-3 h-3" />
-            <span className="text-xs font-medium">{currentLiveViewers} онлайн</span>
+            <Eye className="w-3 h-3" /><span className="text-xs font-medium">{currentLiveViewers} онлайн</span>
           </div>
-          {sourcesForChannel.length > 1 && (
-            <span className="text-white/50 text-xs">
-              {safeMediaIndex + 1}/{sourcesForChannel.length}
-            </span>
-          )}
+          {sourcesForChannel.length > 1 && <span className="text-white/50 text-xs">{safeMediaIndex + 1}/{sourcesForChannel.length}</span>}
         </div>
       </div>
 
-      {/* Actions - Right Side */}
+      {/* Actions */}
       <div className="absolute right-4 bottom-24 flex flex-col items-center gap-6 z-10">
         <button onClick={handleLike} className="flex flex-col items-center">
           <div className={`p-3 rounded-full ${isLiked ? "bg-destructive" : "bg-white/20"}`}>
@@ -484,21 +377,16 @@ const Shorts = () => {
           </div>
           <span className="text-white text-xs mt-1">Лайк</span>
         </button>
-
         <button onClick={() => setShowChat(!showChat)} className="flex flex-col items-center">
           <div className={`p-3 rounded-full ${showChat ? "bg-primary" : "bg-white/20"}`}>
             <MessageCircle className="w-6 h-6 text-white" />
           </div>
           <span className="text-white text-xs mt-1">Чат</span>
         </button>
-
         <button onClick={handleShare} className="flex flex-col items-center">
-          <div className="p-3 rounded-full bg-white/20">
-            <Share2 className="w-6 h-6 text-white" />
-          </div>
+          <div className="p-3 rounded-full bg-white/20"><Share2 className="w-6 h-6 text-white" /></div>
           <span className="text-white text-xs mt-1">Поделиться</span>
         </button>
-
         <button onClick={() => setMuted(!muted)} className="flex flex-col items-center">
           <div className="p-3 rounded-full bg-white/20">
             {muted ? <VolumeX className="w-6 h-6 text-white" /> : <Volume2 className="w-6 h-6 text-white" />}
@@ -507,53 +395,19 @@ const Shorts = () => {
         </button>
       </div>
 
-      {/* Navigation Arrows */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-10">
-        {currentIndex > 0 && (
-          <button onClick={() => setCurrentIndex(currentIndex - 1)} className="p-2 rounded-full bg-white/20">
-            <ChevronUp className="w-6 h-6 text-white" />
-          </button>
-        )}
-        {currentIndex < channels.length - 1 && (
-          <button onClick={() => setCurrentIndex(currentIndex + 1)} className="p-2 rounded-full bg-white/20">
-            <ChevronDown className="w-6 h-6 text-white" />
-          </button>
-        )}
-      </div>
-
-      {/* Progress indicator */}
-      <div className="absolute top-4 left-4 right-4 flex gap-1 z-10">
-        {channels.slice(0, 10).map((_, idx) => (
-          <div key={idx} className={`flex-1 h-1 rounded-full ${idx === currentIndex ? "bg-white" : "bg-white/30"}`} />
-        ))}
-      </div>
-
       {/* Chat Overlay */}
       {showChat && (
-        <div
-          ref={chatRootRef}
-          className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/90 to-transparent z-20 flex flex-col"
-          onTouchStart={(e) => e.stopPropagation()}
-          onTouchEnd={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between p-4">
-            <h4 className="text-white font-semibold flex items-center gap-2">
-              Чат трансляции
-              <span className="text-xs text-white/50 font-normal flex items-center gap-1">
-                <Eye className="w-3 h-3" />{currentLiveViewers}
-              </span>
-            </h4>
-            <button onClick={() => setShowChat(false)}>
-              <X className="w-5 h-5 text-white" />
-            </button>
+        <div ref={chatRootRef} className="absolute bottom-0 left-0 right-0 h-[50vh] bg-black/90 z-30 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+            <h3 className="text-white font-semibold">Чат — {currentChannel.title}</h3>
+            <button onClick={() => setShowChat(false)}><X className="w-5 h-5 text-white" /></button>
           </div>
-          
-          <div ref={chatListRef} className="flex-1 overflow-y-auto px-4 space-y-2">
+          <div ref={chatListRef} className="flex-1 overflow-y-auto px-4 py-2 space-y-2">
             {chatMessages.map((msg) => (
               <div key={msg.id} className="flex items-start gap-2">
                 <Avatar className="w-6 h-6">
                   <AvatarImage src={msg.profiles?.avatar_url || ""} />
-                  <AvatarFallback className="text-xs">{msg.profiles?.username?.[0]}</AvatarFallback>
+                  <AvatarFallback className="text-xs">{msg.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>
                   <span className="text-primary text-xs font-semibold">{msg.profiles?.username}</span>
@@ -562,26 +416,25 @@ const Shorts = () => {
               </div>
             ))}
           </div>
-          
           {user ? (
-            <form onSubmit={handleSendMessage} className="p-4 flex gap-2">
-              <Input
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Написать сообщение..."
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-              />
-              <Button type="submit" size="icon" variant="secondary">
-                <Send className="w-4 h-4" />
-              </Button>
+            <form onSubmit={handleSendMessage} className="flex gap-2 p-3 border-t border-white/10">
+              <Input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Сообщение..." className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-white/50" />
+              <Button type="submit" size="icon" disabled={!newMessage.trim()}><Send className="w-4 h-4" /></Button>
             </form>
           ) : (
-            <p className="text-center text-white/50 p-4 text-sm">
-              Войдите, чтобы писать в чат
-            </p>
+            <div className="p-3 text-center border-t border-white/10">
+              <p className="text-white/50 text-sm">Войдите, чтобы писать в чат</p>
+            </div>
           )}
         </div>
       )}
+
+      {/* Position indicator */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+        <span className="text-white/50 text-xs bg-black/30 px-3 py-1 rounded-full">
+          {currentIndex + 1} / {channels.length}
+        </span>
+      </div>
     </div>
   );
 };

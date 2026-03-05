@@ -9,26 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Edit, 
-  Save, 
-  X, 
-  Code, 
-  Upload, 
-  Trash2,
-  Radio as RadioIcon,
-  Tv,
-  Flag,
-  BarChart3,
-  ExternalLink,
-  Link,
-  Copy,
-  Users,
-  Bot,
-  Gift,
-  Settings,
-  Monitor,
-  Mic,
-  Heart
+  Edit, Save, X, Code, Upload, Trash2,
+  Radio as RadioIcon, Tv, Flag, BarChart3,
+  ExternalLink, Link, Copy, Users, Bot, Gift,
+  Settings, Monitor, Mic, Heart, Scissors
 } from "lucide-react";
 import ScreenShareStreaming from "@/components/ScreenShareStreaming";
 import VoiceStreaming from "@/components/VoiceStreaming";
@@ -43,12 +27,7 @@ import VideoProgressBar from "@/components/VideoProgressBar";
 import UniversalPlayer, { SourceType } from "@/components/UniversalPlayer";
 import ChannelProxySettings from "@/components/ChannelProxySettings";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LikeDislikeSection from "@/components/LikeDislikeSection";
@@ -65,8 +44,11 @@ import PointsRewardsSystem from "@/components/PointsRewardsSystem";
 import ChannelMemberManager, { hasPermission } from "@/components/ChannelMemberManager";
 import PremiumSubscriptions from "@/components/PremiumSubscriptions";
 import ChannelRoulette from "@/components/ChannelRoulette";
+import ChannelClips from "@/components/ChannelClips";
+import ChannelRaidSystem from "@/components/ChannelRaidSystem";
+import ChannelHiddenNotice from "@/components/ChannelHiddenNotice";
 import { useScheduledPlayback } from "@/hooks/useScheduledPlayback";
-import { Film, Download, Crown, Dices, Lock } from "lucide-react";
+import { Film, Download, Crown, Dices, Lock, Zap } from "lucide-react";
 import PaidContentGate from "@/components/PaidContentGate";
 
 interface Channel {
@@ -82,6 +64,8 @@ interface Channel {
   mux_playback_id: string | null;
   donation_url: string | null;
   paid_only: boolean;
+  is_hidden: boolean;
+  hidden_reason: string | null;
 }
 
 interface MediaContent {
@@ -102,6 +86,13 @@ interface PlaybackState {
   current_position: number;
   is_playing: boolean;
   started_at: string;
+}
+
+interface DeletedChannel {
+  original_channel_id: string;
+  title: string;
+  deleted_reason: string;
+  deleted_at: string;
 }
 
 const ChannelView = () => {
@@ -130,6 +121,7 @@ const ChannelView = () => {
   const [useProxy, setUseProxy] = useState(false);
   const [manualStreamKey, setManualStreamKey] = useState("");
   const [viewerPoints, setViewerPoints] = useState(0);
+  const [deletedChannel, setDeletedChannel] = useState<DeletedChannel | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -304,9 +296,24 @@ const ChannelView = () => {
         .eq("id", id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Check if channel was deleted
+        const { data: deleted } = await supabase
+          .from("deleted_channels")
+          .select("*")
+          .eq("original_channel_id", id)
+          .order("deleted_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (deleted) {
+          setDeletedChannel(deleted as DeletedChannel);
+          setLoading(false);
+          return;
+        }
+        throw error;
+      }
 
-      setChannel(data);
+      setChannel(data as Channel);
       setEditedTitle(data.title);
       setEditedDescription(data.description || "");
       setThumbnailPreview(data.thumbnail_url || "");
@@ -551,7 +558,7 @@ const ChannelView = () => {
 
       // For manual setup (Twitch/YouTube or no Restream OAuth)
       if (data?.requiresManualSetup || !streamKey) {
-        // Persist RTMP server choice so it doesn't “disappear” after reload
+        // Persist RTMP server choice so it doesn't "disappear" after reload
         await supabase
           .from("channels")
           .update({ mux_playback_id: rtmpServer, stream_key: null, streaming_method: "live" })
@@ -699,6 +706,30 @@ const ChannelView = () => {
     );
   }
 
+  // Show deleted channel message
+  if (deletedChannel) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="text-center max-w-md p-8 border border-destructive/30 rounded-xl bg-destructive/5">
+            <Trash2 className="w-16 h-16 text-destructive mx-auto mb-4" />
+            <h1 className="text-2xl font-bold mb-2">Канал удалён</h1>
+            <p className="text-muted-foreground mb-4">
+              Канал «{deletedChannel.title}» был удалён за нарушение правил платформы.
+            </p>
+            <p className="text-sm text-destructive font-medium mb-4">
+              Причина: {deletedChannel.deleted_reason}
+            </p>
+            <Button onClick={() => navigate("/browse")} variant="outline">
+              Перейти к каналам
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!channel) return null;
 
   const isOwner = user?.id === channel.user_id;
@@ -706,6 +737,18 @@ const ChannelView = () => {
   const isHost = userRole === "host";
   const canManage = isOwner || isAdmin; // admin has nearly full access
   const canStream = isOwner || isAdmin || isHost; // host can only stream
+
+  // Show hidden channel notice
+  if (channel.is_hidden) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <ChannelHiddenNotice channelId={channel.id} hiddenReason={channel.hidden_reason} isOwner={isOwner} />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
@@ -905,6 +948,10 @@ const ChannelView = () => {
         <Tabs defaultValue="player" className="w-full">
           <TabsList className="flex flex-wrap h-auto gap-1 p-1 mb-4">
             <TabsTrigger value="player" className="text-xs md:text-sm">Плеер</TabsTrigger>
+            <TabsTrigger value="clips" className="text-xs md:text-sm">
+              <Scissors className="w-3 h-3 md:w-4 md:h-4 mr-1" />
+              <span className="hidden md:inline">Клипы</span>
+            </TabsTrigger>
             <TabsTrigger value="schedule" className="text-xs md:text-sm">Расписание</TabsTrigger>
             <TabsTrigger value="subscriptions" className="text-xs md:text-sm">
               <Crown className="w-3 h-3 md:w-4 md:h-4 mr-1" />
@@ -1097,6 +1144,13 @@ const ChannelView = () => {
                 )}
               </div>
               </PaidContentGate>
+            </div>
+          </TabsContent>
+
+          {/* Clips Tab - visible to all */}
+          <TabsContent value="clips" className="mt-4 md:mt-6">
+            <div className="bg-card border border-border rounded-lg p-4 md:p-6">
+              <ChannelClips channelId={channel.id} isOwner={isOwner || isAdmin} />
             </div>
           </TabsContent>
 

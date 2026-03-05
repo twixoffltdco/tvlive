@@ -379,6 +379,51 @@ export type Database = {
           },
         ]
       }
+      channel_raids: {
+        Row: {
+          created_at: string
+          id: string
+          initiated_by: string
+          message: string | null
+          source_channel_id: string
+          target_channel_id: string
+          viewer_count: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          initiated_by: string
+          message?: string | null
+          source_channel_id: string
+          target_channel_id: string
+          viewer_count?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          initiated_by?: string
+          message?: string | null
+          source_channel_id?: string
+          target_channel_id?: string
+          viewer_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_raids_source_channel_id_fkey"
+            columns: ["source_channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_raids_target_channel_id_fkey"
+            columns: ["target_channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_rewards: {
         Row: {
           channel_id: string
@@ -798,6 +843,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      deleted_channels: {
+        Row: {
+          deleted_at: string
+          deleted_by: string | null
+          deleted_reason: string
+          description: string | null
+          id: string
+          original_channel_id: string
+          title: string
+        }
+        Insert: {
+          deleted_at?: string
+          deleted_by?: string | null
+          deleted_reason?: string
+          description?: string | null
+          id?: string
+          original_channel_id: string
+          title: string
+        }
+        Update: {
+          deleted_at?: string
+          deleted_by?: string | null
+          deleted_reason?: string
+          description?: string | null
+          id?: string
+          original_channel_id?: string
+          title?: string
+        }
+        Relationships: []
       }
       deleted_messages: {
         Row: {
