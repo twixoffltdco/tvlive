@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Search as SearchIcon, Tv, Radio } from "lucide-react";
 import { useShortsRecommendations } from "@/hooks/useShortsRecommendations";
+import { isBlockedDuplicateChannel } from "@/lib/channelSafety";
 
 interface Channel {
   id: string;
@@ -58,14 +59,21 @@ const Search = () => {
           )
         `)
         .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+        .eq("is_hidden", false)
         .order("viewer_count", { ascending: false })
         .limit(50);
 
       if (error) throw error;
       
+      const cleanData = (data || []).filter((channel: any) => !isBlockedDuplicateChannel({
+        username: channel.profiles?.username,
+        title: channel.title,
+        description: channel.description,
+      }));
+
       // Sort: OinkTech/Twixoff first, then by viewer count
       const protectedNames = new Set(["oinktech", "twixoff"]);
-      const sorted = (data || []).sort((a: any, b: any) => {
+      const sorted = cleanData.sort((a: any, b: any) => {
         const aProtected = Array.from(protectedNames).some(p => 
           (a.profiles?.username || "").toLowerCase().startsWith(p)
         );

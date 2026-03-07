@@ -50,6 +50,7 @@ import ChannelHiddenNotice from "@/components/ChannelHiddenNotice";
 import { useScheduledPlayback } from "@/hooks/useScheduledPlayback";
 import { Film, Download, Crown, Dices, Lock, Zap } from "lucide-react";
 import PaidContentGate from "@/components/PaidContentGate";
+import { BLOCKED_CHANNEL_TEXT, isBlockedDuplicateChannel } from "@/lib/channelSafety";
 
 interface Channel {
   id: string;
@@ -66,6 +67,9 @@ interface Channel {
   paid_only: boolean;
   is_hidden: boolean;
   hidden_reason: string | null;
+  profiles?: {
+    username: string;
+  } | null;
 }
 
 interface MediaContent {
@@ -292,7 +296,7 @@ const ChannelView = () => {
     try {
       const { data, error } = await supabase
         .from("channels")
-        .select("*")
+        .select("*, profiles:user_id(username)")
         .eq("id", id)
         .single();
 
@@ -740,6 +744,32 @@ const ChannelView = () => {
   const isHost = userRole === "host";
   const canManage = isOwner || isAdmin; // admin has nearly full access
   const canStream = isOwner || isAdmin || isHost; // host can only stream
+
+  const isBlockedAsDuplicate = isBlockedDuplicateChannel({
+    username: channel.profiles?.username,
+    title: channel.title,
+    description: channel.description,
+    isHidden: channel.is_hidden,
+    hiddenReason: channel.hidden_reason,
+  });
+
+  if (isBlockedAsDuplicate) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="flex items-center justify-center h-[60vh] px-4">
+          <div className="text-center max-w-xl p-8 border border-destructive/30 rounded-xl bg-destructive/5">
+            <Trash2 className="w-16 h-16 text-destructive mx-auto mb-4" />
+            <h1 className="text-2xl font-bold mb-2">Канал заблокирован</h1>
+            <p className="text-muted-foreground mb-4">{BLOCKED_CHANNEL_TEXT}</p>
+            <Button onClick={() => navigate("/search")} variant="outline">
+              Перейти к поиску
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Show hidden channel notice
   if (channel.is_hidden) {
@@ -1192,6 +1222,9 @@ const ChannelView = () => {
 
           {canManage && (
             <TabsContent value="media" className="mt-4 md:mt-6">
+              <div className="mb-4">
+                <ChannelRaidSystem channelId={channel.id} isOwner={canManage} mediaCount={mediaContent.length} />
+              </div>
               <MediaManager
                 channelId={channel.id}
                 channelType={channel.channel_type}

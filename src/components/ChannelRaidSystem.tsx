@@ -10,6 +10,7 @@ import { Zap, Search, Users, ArrowRight, AlertCircle } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import { isBlockedDuplicateChannel } from "@/lib/channelSafety";
 
 interface ChannelRaidSystemProps {
   channelId: string;
@@ -23,6 +24,9 @@ interface SearchResult {
   thumbnail_url: string | null;
   channel_type: string;
   viewer_count: number;
+  profiles: {
+    username: string;
+  } | null;
 }
 
 const ChannelRaidSystem = ({ channelId, isOwner, mediaCount = 0 }: ChannelRaidSystemProps) => {
@@ -59,12 +63,21 @@ const ChannelRaidSystem = ({ channelId, isOwner, mediaCount = 0 }: ChannelRaidSy
     setSearching(true);
     const { data } = await supabase
       .from("channels")
-      .select("id, title, thumbnail_url, channel_type, viewer_count")
+      .select("id, title, thumbnail_url, channel_type, viewer_count, description, is_hidden, hidden_reason, profiles:user_id(username)")
       .neq("id", channelId)
       .ilike("title", `%${searchQuery}%`)
       .eq("is_hidden", false)
       .limit(10);
-    setResults(data || []);
+
+    const safeResults = (data || []).filter((channel: any) => !isBlockedDuplicateChannel({
+      username: channel.profiles?.username,
+      title: channel.title,
+      description: channel.description,
+      isHidden: channel.is_hidden,
+      hiddenReason: channel.hidden_reason,
+    }));
+
+    setResults(safeResults);
     setSearching(false);
   };
 

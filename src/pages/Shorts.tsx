@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import UniversalPlayer, { SourceType } from "@/components/UniversalPlayer";
 import DataConsentBanner from "@/components/DataConsentBanner";
 import { useShortsRecommendations } from "@/hooks/useShortsRecommendations";
+import { isBlockedDuplicateChannel } from "@/lib/channelSafety";
 
 interface Channel {
   id: string;
@@ -27,6 +28,8 @@ interface Channel {
   user_id: string;
   created_at: string;
   category_id?: string | null;
+  is_hidden?: boolean;
+  hidden_reason?: string | null;
   profiles: {
     username: string;
     avatar_url: string | null;
@@ -86,7 +89,7 @@ const Shorts = () => {
     
     const { data, error } = await supabase
       .from("channels")
-      .select(`id, title, description, thumbnail_url, channel_type, is_live, viewer_count, user_id, created_at, category_id, profiles:user_id (username, avatar_url)`)
+      .select(`id, title, description, thumbnail_url, channel_type, is_live, viewer_count, user_id, created_at, category_id, is_hidden, hidden_reason, profiles:user_id (username, avatar_url)`)
       .eq("is_hidden", false)
       .order("viewer_count", { ascending: false })
       .limit(100);
@@ -134,7 +137,15 @@ const Shorts = () => {
     }
     setMediaByChannel(mediaMap);
 
-    const withMedia = (data as any[]).filter(ch => (mediaMap[ch.id] || []).length > 0);
+    const withMedia = (data as any[])
+      .filter((ch) => !isBlockedDuplicateChannel({
+        username: ch.profiles?.username,
+        title: ch.title,
+        description: ch.description,
+        isHidden: ch.is_hidden,
+        hiddenReason: ch.hidden_reason,
+      }))
+      .filter(ch => (mediaMap[ch.id] || []).length > 0);
     const seenTitles = new Set<string>();
     const deduped = withMedia.filter((ch) => {
       const key = `${ch.title?.toLowerCase().trim()}|${ch.channel_type}`;
