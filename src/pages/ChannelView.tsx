@@ -140,6 +140,7 @@ const ChannelView = () => {
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string>("");
   const [restreamUrl, setRestreamUrl] = useState<string>("");
+  const [manualRtmpServer, setManualRtmpServer] = useState("");
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [storageUsage, setStorageUsage] = useState(0);
@@ -314,6 +315,14 @@ const ChannelView = () => {
       setRestreamUrl("");
     }
   }, [channel?.streaming_method, channel?.mux_playback_id, channel?.stream_key]);
+
+  useEffect(() => {
+    if (channel?.mux_playback_id) {
+      setManualRtmpServer(channel.mux_playback_id);
+    } else {
+      setManualRtmpServer("rtmp://live.restream.io/live");
+    }
+  }, [channel?.mux_playback_id]);
 
   useEffect(() => {
     const canonicalUrl = `${window.location.origin}/channel/${id}`;
@@ -672,7 +681,7 @@ const ChannelView = () => {
     if (!channel || !manualStreamKey.trim()) return;
 
     try {
-      const rtmpServer = channel.mux_playback_id || "rtmp://live.restream.io/live";
+      const rtmpServer = manualRtmpServer.trim() || channel.mux_playback_id || "rtmp://live.restream.io/live";
       const { error } = await supabase
         .from("channels")
         .update({
@@ -1438,28 +1447,33 @@ const ChannelView = () => {
 
                     {/* Manual Stream Key Input */}
                     <div className="mt-6 p-4 border border-border rounded-lg space-y-4">
-                      <h4 className="font-medium text-sm">Или введите Stream Key вручную:</h4>
-                      <div className="flex gap-2">
+                      <h4 className="font-medium text-sm">Или введите RTMP Server и Stream Key вручную:</h4>
+                      <div className="space-y-2">
                         <Input
-                          placeholder="Ваш Stream Key из Restream/Twitch/YouTube"
-                          value={manualStreamKey}
-                          onChange={(e) => setManualStreamKey(e.target.value)}
-                          type="password"
-                          className="flex-1"
+                          placeholder="RTMP Server (например, rtmp://live.restream.io/live)"
+                          value={manualRtmpServer}
+                          onChange={(e) => setManualRtmpServer(e.target.value)}
+                          className="font-mono"
                         />
-                        <Button
-                          onClick={saveManualStreamKey}
-                          disabled={!manualStreamKey.trim()}
-                          variant="secondary"
-                        >
-                          Сохранить
-                        </Button>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Ваш Stream Key из Restream/Twitch/YouTube"
+                            value={manualStreamKey}
+                            onChange={(e) => setManualStreamKey(e.target.value)}
+                            type="password"
+                            className="flex-1"
+                          />
+                          <Button
+                            onClick={saveManualStreamKey}
+                            disabled={!manualStreamKey.trim()}
+                            variant="secondary"
+                          >
+                            Сохранить
+                          </Button>
+                        </div>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        RTMP Server:{" "}
-                        <code className="bg-muted px-1 rounded">
-                          {channel.mux_playback_id || "rtmp://live.restream.io/live"}
-                        </code>
+                        Можно указать любой RTMP endpoint и ключ. Это подходит для OBS + Restream, Twitch, YouTube и других RTMP-платформ.
                       </p>
                     </div>
                   </div>

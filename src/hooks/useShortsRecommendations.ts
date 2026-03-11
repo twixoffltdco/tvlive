@@ -193,6 +193,8 @@ export function useShortsRecommendations(userId?: string | null) {
         if (interestTags.length > 0) {
           const normalizedContent = `${channel.title || ""} ${channel.description || ""}`.toLowerCase();
           const contentTokens = new Set(splitToTokens(normalizedContent));
+          let matchedInterests = 0;
+
           for (const tag of interestTags) {
             const normalizedTag = normalizeInterestTag(tag);
             const tagTokens = splitToTokens(normalizedTag);
@@ -203,8 +205,16 @@ export function useShortsRecommendations(userId?: string | null) {
             const hasPhraseMatch = normalizedTag.length >= 3 && normalizedContent.includes(normalizedTag);
 
             if (hasTokenMatch || hasPhraseMatch) {
-              score += 15;
+              matchedInterests += 1;
+              score += hasPhraseMatch ? 20 : 14;
             }
+          }
+
+          // If user explicitly configured interests, de-prioritize unrelated channels.
+          if (matchedInterests === 0) {
+            score -= 12;
+          } else {
+            score += matchedInterests * 6;
           }
         }
       } catch {
