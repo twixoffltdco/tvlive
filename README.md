@@ -62,7 +62,7 @@ npm run lint     # проверка ESLint
 
 Ниже рекомендуемая схема публикации:
 
-- **Основной сайт**: Vercel
+- **Основной сайт**: Vercel / Cloudflare Pages
 - **Резервный сайт (fallback)**: Netlify
 
 Это удобно: если у одного провайдера временные проблемы, можно быстро переключить трафик на второй.
@@ -83,6 +83,15 @@ npm run lint     # проверка ESLint
 - **Publish directory**: `dist`
 - **Node version**: 18+
 - Добавьте одинаковые переменные окружения (особенно Supabase), чтобы основной и резервный сайты работали одинаково.
+
+### Cloudflare Pages (если деплоите туда)
+
+- **Framework preset**: `Vite`
+- **Install command**: `npm install`
+- **Build command**: `npm run build`
+- **Output directory**: `dist`
+
+> В этом проекте может отсутствовать актуальный npm lock-файл, поэтому для Cloudflare Pages используйте `npm install`, а не `npm ci`.
 
 ---
 

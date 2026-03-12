@@ -29,6 +29,8 @@ interface Channel {
   user_id: string;
   created_at: string;
   category_id?: string | null;
+  mux_playback_id?: string | null;
+  stream_key?: string | null;
   is_hidden?: boolean;
   hidden_reason?: string | null;
   profiles: {
@@ -81,6 +83,13 @@ const Shorts = () => {
   const [interestInput, setInterestInput] = useState("");
   const [showInterestEditor, setShowInterestEditor] = useState(false);
 
+  const tokenizeContent = (value: string) =>
+    value
+      .toLowerCase()
+      .split(/[\s,.;:!?()\[\]{}"'`~@#$%^&*+=|\\/<>\-]+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 3);
+
   const {
     showConsentBanner,
     acceptConsent,
@@ -101,7 +110,7 @@ const Shorts = () => {
     
     const { data, error } = await supabase
       .from("channels")
-      .select(`id, title, description, thumbnail_url, channel_type, is_live, streaming_method, viewer_count, user_id, created_at, category_id, is_hidden, hidden_reason, profiles:user_id (username, avatar_url)`)
+      .select(`id, title, description, thumbnail_url, channel_type, is_live, streaming_method, viewer_count, user_id, created_at, category_id, mux_playback_id, stream_key, is_hidden, hidden_reason, profiles:user_id (username, avatar_url)`)
       .eq("is_hidden", false)
       .order("viewer_count", { ascending: false })
       .limit(500);
@@ -172,16 +181,37 @@ const Shorts = () => {
     const deduped = deduplicateChannelsByTitle(withMedia as any[]);
 
     const scored = deduped.map((ch: any) => ({ ...ch, _score: scoreChannel(ch) }));
-    scored.sort((a: any, b: any) => {
+
+    const hasManualInterests = interestTags.length > 0;
+    const relevantOnly = hasManualInterests
+      ? scored.filter((ch: any) => ch._score > 0)
+      : scored;
+    const feedSource = relevantOnly.length > 0 ? relevantOnly : scored;
+
+    feedSource.sort((a: any, b: any) => {
       if (a._score !== b._score) return b._score - a._score;
       return (b.viewer_count || 0) - (a.viewer_count || 0);
     });
     
-    setChannels(scored);
+    setChannels(feedSource);
     setCurrentIndex(0);
     setCurrentMediaIndex(0);
     setLoading(false);
-  }, [scoreChannel]);
+  }, [interestTags.length, scoreChannel]);
+
+  const suggestionSource = channels
+    .flatMap((channel) => tokenizeContent(`${channel.title} ${channel.description || ""}`))
+    .reduce<Record<string, number>>((acc, token) => {
+      acc[token] = (acc[token] || 0) + 1;
+      return acc;
+    }, {});
+
+  const normalizedInterestInput = interestInput.trim().toLowerCase();
+  const interestSuggestions = Object.entries(suggestionSource)
+    .filter(([token]) => normalizedInterestInput.length === 0 || token.startsWith(normalizedInterestInput))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([token]) => token);
 
   useEffect(() => {
     fetchChannels();
@@ -375,7 +405,21 @@ const Shorts = () => {
   const currentMedia = sourcesForChannel[safeMediaIndex];
   const isLiked = likedChannels.has(currentChannel?.id);
   const currentLiveViewers = liveViewerCounts[currentChannel?.id] || currentChannel?.viewer_count || 0;
-  const liveStreamUrl = currentChannel ? `https://aqeleulwobgamdffkfri.functions.supabase.co/hls-playlist?channelId=${currentChannel.id}` : "";
+  const fallbackPlaylistUrl = currentChannel ? `https://aqeleulwobgamdffkfri.functions.supabase.co/hls-playlist?channelId=${currentChannel.id}` : "";
+  const liveStreamUrl = (() => {
+    if (!currentChannel?.is_live || currentChannel.streaming_method !== "live") return "";
+    const playbackUrl = (currentChannel.mux_playback_id || "").trim();
+
+    if (playbackUrl.startsWith("http://") || playbackUrl.startsWith("https://")) {
+      return playbackUrl;
+    }
+
+    if (sourcesForChannel.length > 0) {
+      return fallbackPlaylistUrl;
+    }
+
+    return "";
+  })();
 
   return (
     <div ref={containerRef} className="fixed inset-0 bg-black overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
@@ -415,6 +459,20 @@ const Shorts = () => {
             placeholder="спорт, кино, новости, музыка"
             className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
           />
+          {interestSuggestions.length > 0 && !interestInput.includes(",") && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {interestSuggestions.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => setInterestInput(tag)}
+                  className="rounded-full border border-white/30 bg-white/10 px-2 py-1 text-xs text-white hover:bg-white/20"
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2 mt-2">
             <Button
               size="sm"
@@ -463,6 +521,12 @@ const Shorts = () => {
             muted={muted}
             className="w-full h-full object-cover"
           />
+        ) : currentChannel.is_live && currentChannel.streaming_method === "live" ? (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-background to-primary/20 text-center px-6">
+            <Tv className="w-16 h-16 text-primary mb-3 animate-pulse" />
+            <p className="text-white font-semibold">Ожидаем входящий live-поток</p>
+            <p className="text-white/70 text-sm mt-1">Проверь RTMP Server/Stream Key и перезапусти трансляцию в OBS/Restream.</p>
+          </div>
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-background to-primary/20">
             {currentChannel.channel_type === "tv" ? (
