@@ -93,6 +93,15 @@ npm run lint     # проверка ESLint
 
 > В этом проекте может отсутствовать актуальный npm lock-файл, поэтому для Cloudflare Pages используйте `npm install`, а не `npm ci`.
 
+### Если сборка в Cloudflare Pages падает
+
+Проверьте в **Deployments → конкретный деплой → View build log**:
+- какой Node/NPM используется;
+- не установлена ли переменная `NODE_ENV=production` (в таком случае dev-зависимости могут не ставиться);
+- что команды выставлены так: `npm install` → `npm run build` → output `dist`.
+
+В репозитории зафиксирован `wrangler.toml` с безопасной `compatibility_date` (не в будущем), чтобы Cloudflare не отклонял деплой на этапе конфигурации.
+
 ---
 
 ## Переменные окружения
