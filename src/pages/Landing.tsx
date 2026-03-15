@@ -4,6 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Tv, Radio, Users, Zap, Play, Star, Globe, Shield, Code } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -212,6 +218,43 @@ const Landing = () => {
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* FAQ Section */}
+      <div className="container mx-auto px-4 pb-16">
+        <Card className="glass">
+          <CardContent className="p-8 md:p-12">
+            <h2 className="text-3xl font-bold mb-6">FAQ</h2>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="item-1">
+                <AccordionTrigger>Что такое StreamLiveTV?</AccordionTrigger>
+                <AccordionContent>
+                  Это платформа, где можно создавать и смотреть ТВ- и радио-каналы,
+                  запускать 24/7 трансляции и общаться с аудиторией в чате.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-2">
+                <AccordionTrigger>Можно ли использовать свои источники контента?</AccordionTrigger>
+                <AccordionContent>
+                  Да. Поддерживаются разные форматы и платформы, включая YouTube,
+                  MP4, M3U8 и RTMP-источники.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-3">
+                <AccordionTrigger>Что запрещено на платформе?</AccordionTrigger>
+                <AccordionContent>
+                  Запрещено создавать мусорные/фейковые каналы, спамить, дублировать
+                  чужие официальные каналы, публиковать вредоносный или запрещённый
+                  контент и любым способом засорять платформу. За нарушения
+                  применяются скрытие каналов, блокировка контента и аккаунта без
+                  предупреждения.
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </CardContent>
         </Card>
       </div>
