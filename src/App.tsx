@@ -23,6 +23,7 @@ import ApiDocumentation from "./pages/ApiDocumentation";
 import Landing from "./pages/Landing";
 import Shorts from "./pages/Shorts";
 import RestreamCallback from "./pages/RestreamCallback";
+import Legal from "./pages/Legal";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/search" element={<Search />} />
             <Route path="/changelog" element={<Changelog />} />
             <Route path="/api-docs" element={<ApiDocumentation />} />
+            <Route path="/legal" element={<Legal />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -218,9 +218,16 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="border-t border-border py-8">
-        <div className="container mx-auto px-4 text-center text-muted-foreground">
-          <p className="mb-2">© 2024-2026 StreamLiveTV. TOO Oink Tech Ltd Co.</p>
+        <div className="container mx-auto px-4 text-center text-muted-foreground space-y-2">
+          <p>© 2024-2026 StreamLiveTV. TOO Oink Tech Ltd Co.</p>
           <p className="text-sm">Все права защищены.</p>
+          <p className="text-sm">
+            <Link to="/legal#privacy" className="underline underline-offset-4 hover:text-foreground">Политика конфиденциальности</Link>
+            {" · "}
+            <Link to="/legal#terms" className="underline underline-offset-4 hover:text-foreground">Пользовательское соглашение</Link>
+            {" · "}
+            <Link to="/legal#rules" className="underline underline-offset-4 hover:text-foreground">Правила платформы</Link>
+          </p>
         </div>
       </footer>
     </div>

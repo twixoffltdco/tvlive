@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,8 @@ const Auth = () => {
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [banMessage, setBanMessage] = useState<string | null>(null);
+  const [agreedToLegal, setAgreedToLegal] = useState(false);
+  const [agreedToLegalSignIn, setAgreedToLegalSignIn] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -69,6 +71,10 @@ const Auth = () => {
 
     try {
       const validatedData = signUpSchema.parse({ username, email, password });
+      if (!agreedToLegal) {
+        throw new Error("Для регистрации необходимо принять правила платформы и политику конфиденциальности");
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email: validatedData.email,
         password: validatedData.password,
@@ -85,7 +91,7 @@ const Auth = () => {
 
       if (data.user) {
         toast({ title: "Добро пожаловать!", description: "Ваш аккаунт успешно создан. Перенаправляем..." });
-        setEmail(""); setPassword(""); setUsername("");
+        setEmail(""); setPassword(""); setUsername(""); setAgreedToLegal(false);
       }
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -105,6 +111,10 @@ const Auth = () => {
 
     try {
       const validatedData = signInSchema.parse({ email, password });
+      if (!agreedToLegalSignIn) {
+        throw new Error("Для входа необходимо подтвердить согласие с правилами платформы");
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email: validatedData.email,
         password: validatedData.password,
@@ -184,6 +194,20 @@ const Auth = () => {
                     <Label htmlFor="password-signin">Пароль</Label>
                     <Input id="password-signin" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required className="bg-background/50" />
                   </div>
+                  <div className="rounded-md border border-border bg-background/30 p-3 text-xs text-muted-foreground space-y-2">
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={agreedToLegalSignIn}
+                        onChange={(e) => setAgreedToLegalSignIn(e.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        Подтверждаю согласие с <Link to="/legal#terms" className="text-primary underline">условиями использования</Link> и <Link to="/legal#privacy" className="text-primary underline">политикой конфиденциальности</Link>.
+                      </span>
+                    </label>
+                  </div>
+
                   <Button type="submit" className="w-full font-semibold" disabled={loading}>{loading ? "Загрузка..." : "Войти"}</Button>
                 </form>
               </TabsContent>
@@ -202,6 +226,20 @@ const Auth = () => {
                     <Label htmlFor="password-signup">Пароль</Label>
                     <Input id="password-signup" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="bg-background/50" />
                   </div>
+                  <div className="rounded-md border border-border bg-background/30 p-3 text-xs text-muted-foreground space-y-2">
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={agreedToLegal}
+                        onChange={(e) => setAgreedToLegal(e.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        Я принимаю <Link to="/legal#terms" className="text-primary underline">пользовательское соглашение</Link>, <Link to="/legal#privacy" className="text-primary underline">политику конфиденциальности</Link> и <Link to="/legal#rules" className="text-primary underline">правила платформы</Link>.
+                      </span>
+                    </label>
+                  </div>
+
                   <Button type="submit" className="w-full font-semibold" disabled={loading}>{loading ? "Создание..." : "Создать аккаунт"}</Button>
                 </form>
               </TabsContent>
