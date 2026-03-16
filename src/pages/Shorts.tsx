@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Heart, MessageCircle, Share2, Volume2, VolumeX,
   ChevronUp, ChevronDown, Send, X, Tv,
-  Radio as RadioIcon, Eye, RefreshCw, Sparkles, RotateCcw
+  Radio as RadioIcon, Eye, RefreshCw, Sparkles, RotateCcw, Plus
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import UniversalPlayer, { SourceType } from "@/components/UniversalPlayer";
@@ -90,6 +90,8 @@ const Shorts = () => {
       .split(/[\s,.;:!?()\[\]{}"'`~@#$%^&*+=|\\/<>\-]+/)
       .map((token) => token.trim())
       .filter((token) => token.length >= 3);
+
+  const presetInterests = ["развлечения", "музыка", "кино", "спорт", "новости", "игры", "технологии", "юмор", "подкасты", "образование"];
 
   const {
     showConsentBanner,
@@ -445,47 +447,98 @@ const Shorts = () => {
       </div>
 
       {showInterestEditor && (
-        <div className="absolute top-16 right-4 z-30 w-[320px] max-w-[calc(100vw-2rem)] rounded-lg border border-white/20 bg-black/80 p-3 backdrop-blur-sm">
-          <p className="text-sm text-white font-medium mb-2">Персональные интересы (как TikTok)</p>
-          <Input
-            value={interestInput}
-            onChange={(e) => setInterestInput(e.target.value)}
-            placeholder="спорт, кино, новости, музыка"
-            className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-          />
-          {interestSuggestions.length > 0 && !interestInput.includes(",") && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {interestSuggestions.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => setInterestInput(tag)}
-                  className="rounded-full border border-white/30 bg-white/10 px-2 py-1 text-xs text-white hover:bg-white/20"
-                >
-                  {tag}
-                </button>
-              ))}
+        <div className="absolute inset-0 z-40 bg-black/95 backdrop-blur-md p-4 md:p-8 flex flex-col">
+          <div className="mx-auto w-full max-w-3xl h-full flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-white text-xl md:text-2xl font-semibold">Настройка интересов</p>
+                <p className="text-white/70 text-sm">Выбирайте кнопками и/или вводите свои темы через запятую.</p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => setShowInterestEditor(false)} className="bg-white/10 text-white border-white/30">
+                <X className="w-4 h-4 mr-1" /> Закрыть
+              </Button>
             </div>
-          )}
-          <div className="flex gap-2 mt-2">
-            <Button
-              size="sm"
-              onClick={() => {
-                const tags = interestInput.split(",").map((tag) => tag.trim()).filter(Boolean);
-                saveInterestTags(tags);
-                toast({ title: "Интересы сохранены" });
-                fetchChannels();
-              }}
-            >
-              Сохранить
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setShowInterestEditor(false)}>
-              Закрыть
-            </Button>
+
+            <div className="rounded-xl border border-white/20 bg-white/5 p-4 md:p-5">
+              <Input
+                value={interestInput}
+                onChange={(e) => setInterestInput(e.target.value)}
+                placeholder="развлечения, спорт, кино, музыка"
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+              />
+
+              <div className="mt-4">
+                <p className="text-white/80 text-xs uppercase tracking-wide mb-2">Популярные интересы</p>
+                <div className="flex flex-wrap gap-2">
+                  {presetInterests.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        const parsed = interestInput.split(",").map((item) => item.trim()).filter(Boolean);
+                        if (parsed.includes(tag)) {
+                          setInterestInput(parsed.filter((item) => item !== tag).join(", "));
+                          return;
+                        }
+                        setInterestInput([...parsed, tag].join(", "));
+                      }}
+                      className="rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-sm text-white hover:bg-white/20"
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {interestSuggestions.length > 0 && !interestInput.includes(",") && (
+                <div className="mt-4">
+                  <p className="text-white/80 text-xs uppercase tracking-wide mb-2">Подсказки из ленты</p>
+                  <div className="flex flex-wrap gap-2">
+                    {interestSuggestions.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => setInterestInput(tag)}
+                        className="rounded-full border border-primary/60 bg-primary/20 px-3 py-1.5 text-sm text-white hover:bg-primary/30"
+                      >
+                        <Plus className="w-3.5 h-3.5 inline mr-1" />
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-auto pt-4 flex flex-wrap gap-2">
+              <Button
+                onClick={() => {
+                  const tags = interestInput.split(",").map((tag) => tag.trim()).filter(Boolean);
+                  saveInterestTags(tags);
+                  toast({ title: "Интересы сохранены" });
+                  fetchChannels();
+                  setShowInterestEditor(false);
+                }}
+              >
+                Сохранить
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setInterestInput("");
+                  saveInterestTags([]);
+                  fetchChannels();
+                }}
+                className="border-white/30 text-white hover:bg-white/10"
+              >
+                Очистить
+              </Button>
+            </div>
+
+            {interestTags.length > 0 && (
+              <p className="text-xs text-white/70 mt-3">Текущие интересы: {interestTags.join(", ")}</p>
+            )}
           </div>
-          {interestTags.length > 0 && (
-            <p className="text-xs text-white/70 mt-2">Текущие: {interestTags.join(", ")}</p>
-          )}
         </div>
       )}
 

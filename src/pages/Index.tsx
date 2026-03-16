@@ -5,7 +5,7 @@ import { TrendingUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import ChannelPreviewCard from "@/components/ChannelPreviewCard";
-import { deduplicateChannelsByTitle, hasBlockedModerationReason, isBlockedDuplicateChannel } from "@/lib/channelSafety";
+import { deduplicateChannelsByTitle, shouldCensorChannelFromDiscovery } from "@/lib/channelSafety";
 
 interface Channel {
   id: string;
@@ -84,8 +84,7 @@ const Index = () => {
     const filtered = rawChannels
       .filter((channel) => !channel.is_hidden)
       .filter((channel) => !bannedUsers.has(channel.user_id))
-      .filter((channel) => !hasBlockedModerationReason(channel.hidden_reason))
-      .filter((channel) => !isBlockedDuplicateChannel({
+      .filter((channel) => !shouldCensorChannelFromDiscovery({
         username: channel.profiles?.username,
         title: channel.title,
         description: channel.description,
