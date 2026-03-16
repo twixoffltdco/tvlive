@@ -113,6 +113,11 @@ const hasSuspiciousLowEffortText = (title?: string | null, description?: string 
   return hasLowQualityDescription || (hasLowQualityTitle && normalizedDescription.length <= 8);
 };
 
+const hasMissingDescription = (description?: string | null) => {
+  const normalizedDescription = normalize(description);
+  return normalizedDescription.length === 0;
+};
+
 const hasJunkDiscoveryKeyword = (...parts: Array<string | null | undefined>) => {
   const normalized = normalize(parts.filter(Boolean).join(" "));
   if (!normalized) return false;
@@ -150,6 +155,10 @@ export const getDiscoveryCensorshipReason = ({
 
   if (isSuspiciousBrandUsername(username)) {
     return "Канал выглядит как дубликат защищённого бренда";
+  }
+
+  if (hasMissingDescription(description)) {
+    return "У канала отсутствует описание";
   }
 
   if (hasSuspiciousLowEffortText(title, description)) {
