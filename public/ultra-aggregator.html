@@ -82,15 +82,32 @@
 
         <div class="video-list" id="videoList"></div>
     </div>
+<style>
+        .vip-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(45deg, #ffd700, #ffb347);
+            color: #000;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+            z-index: 1001;
+            cursor: pointer;
+            border: none;
+        }
+    </style>
 
     <div class="modal" id="videoModal">
         <div class="modal-content">
             <div class="player-viewport" id="viewport">
+            <div class="vip-status">ULTRA AGGREGATOR</div>
                 <div class="ad-layer" id="adLayer">
                     <video class="ad-video" id="adVid" playsinline></video>
                     <div class="ad-status" id="adCounter">Реклама</div>
                     <div class="ad-btns">
-                        <button class="ad-btn" id="unmuteAd" onclick="unmuteAd()">🔊 Звук</button>
+                        <button class="ad-btn" id="unmuteAd" onclick="unmuteAd()">ߔ Звук</button>
                         <button class="ad-btn skip-btn" id="skipAd" onclick="skipAd()">Пропустить ▶</button>
                     </div>
                 </div>
@@ -140,13 +157,17 @@
             let p = 'link', embed = '', crop = 'standard';
             if (url.includes('twitch.tv')) {
                 p = 'twitch';
-                let id = url.split('/').pop().split('?')[0];
-                embed = `https://player.twitch.tv/?channel=${id}&parent=oinktech.blyz.ru&autoplay=true`;
+                    if (url.includes('/videos/')) {
+                        id = url.split('/videos/')[1]?.split('?')[0];
+                        embed = `https://player.twitch.tv/?video=${id}&parent=${parent}&autoplay=true`;
+                    } else {
+                        let channel = url.split('/').pop().split('?')[0];
+                        embed = `https://player.twitch.tv/?channel=${channel}&parent=${parent}&autoplay=true`;
             } 
             else if (url.includes('kick.com')) {
                 p = 'kick';
                 let id = url.split('/').pop().split('?')[0];
-                embed = `https://player.kick.com/${id}&parent=oinktech.blyz.ru`;
+                embed = `https://player.kick.com/${id}?autoplay=1&muted=0&parent=oinktech.blyz.ru`;
             }
 			else if (url.includes('w.tv')) {
                 p = 'wtv';
@@ -156,23 +177,24 @@
 		    else if (url.includes('matreshka.tv')) {
                 p = 'mattv';
                 let id = url.split('/').pop().split('?')[0];
-                embed = `https://matreshka.tv/en/embed/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
+                embed = `https://matreshka.tv/embed/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
             }
 		   else if (url.includes('plvideo.ru')) {
                 p = 'plvideo';
                 let id = url.split('/').pop().split('?')[0];
-                embed = `https://plvideo.ru/embed/${id}&parent=oinktech.blyz.ru`;
+                embed = `https://plvideo.ru/embed/${id}?autoplay=1&muted=0&parent=oinktech.blyz.ru`;
             }
 		    else if (url.includes('catcast.tv')) {
                 p = 'ctv';
                 let id = url.split('/').pop().split('?')[0];
-                embed = `https://catcast.tv/${id}&parent=oinktech.blyz.ru`;
+                embed = `https://catcast.tv/embed/${id}?autoplay=1&muted=0&parent=oinktech.blyz.ru`;
             }
-			   else if (url.includes('dzen.ru')) {
-                p = 'dzenvk';
-                let id = url.split('/').pop().split('?')[0];
-                embed = `https://dzen.ru/embed/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
-            }
+ // Дзен
+                else if (url.includes('dzen.ru') || url.includes('zen.yandex.ru')) {
+                    p = 'dzenvk';
+                    let id = url.split('/').pop().split('?')[0];
+                    embed = `https://dzen.ru/embed/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
+                }
 					   else if (url.includes('vimeo.com')) {
                 p = 'Vimeo';
                 let id = url.split('/').pop().split('?')[0];
@@ -186,12 +208,17 @@
 			else if (url.includes('livestudio-creator.lovable.app')) {
                 p = 'StreamLiveTV';
                 let id = url.split('/').pop().split('?')[0];
-                embed = `https://livestudio-creator.lovable.app/embed/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
+                embed = `https://bbacesemc33e7hd47kfq.containers.yandexcloud.net/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
             }
-			else if (url.includes('live.vkvideo.ru')) {
+	else if (url.includes('livestudio-creator.vercel.app') || url.includes('stlivetv.vercel.app'  || url.includes('streamlivetv.vercel.app')  || url.includes('livestudio-creator-oinktechltd.onreza.app')  || url.includes('stlivetv.netfily.app')  || url.includes('livestudio-creator.netfily.app')  || url.includes('bbacesemc33e7hd47kfq.containers.yandexcloud.net')  || url.includes('stlivetv.vercel.app' || url.includes('stlivetv.vercel.app')  || url.includes('stlivetv.vercel.app')  || url.includes('stlivetv.vercel.app')) {
+                p = 'StreamLiveTV';
+                let id = url.split('/').pop().split('?')[0];
+                embed = `https://embesslivestudio.vercel.app/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
+            }
+	else if (url.includes('live.vkvideo.ru')) {
             p = 'vktv';
             let id = url.split('/').pop().split('?')[0];
-            embed = `https://live.vkvideo.ru/embed/${id}&parent=oinktech.blyz.ru`;
+            embed = `https://live.vkvideo.ru/embed/${id}?autoplay=1&muted=0&parent=oinktech.blyz.ru`;
             }
             else if (url.includes('vkvideo.ru') || url.includes('vk.com') || url.includes('vk.ru')) {
                 p = 'vk_video';
@@ -208,6 +235,11 @@
                 let id = url.match(/\/video\/([a-f0-9]+)/)?.[1];
                 embed = `https://rutube.ru/play/embed/${id}?autoplay=1&mute=0&skinColor=00000000&parent=oinktech.blyz.ru`;
             }
+else if (url.includes('embed') || url.includes('embedstreamlivetv'  || url.includes('embesslivestudio.lovable.app')  || url.includes('embedss')  || url.includes('embess')) {
+                p = 'StreamLiveTV (partner)';
+                let id = url.split('/').pop().split('?')[0];
+                embed = `https://embesslivestudio.lovable.app/player?channel=${id}`;
+            }
             else { p = 'generic'; embed = url; }
             return embed ? { id: Date.now(), platform: p, url: embed, crop: crop } : null;
         }
@@ -222,12 +254,12 @@
 
         function render() {
             const list = document.getElementById('videoList');
-            const icons = { twitch:'🎮', kick:'🟢', vk_video:'🎥', youtube:'📹', rutube:'📺', generic:'🔗' };
+            const icons = { twitch:'ߎ', kick:'ߟ', vk_video:'ߎ', youtube:'ߓ', rutube:'ߓ', generic:'ߔ' };
             list.innerHTML = savedVideos.map(v => `
                 <div class="video-card" onclick="startPlayback(${v.id})">
                     <button class="delete-btn" onclick="event.stopPropagation();del(${v.id})">✕</button>
                     <div class="video-thumbnail">
-                        ${icons[v.platform] || '🎞️'}
+                        ${icons[v.platform] || 'ߎ️'}
                         <div class="platform-tag">${v.platform}</div>
                     </div>
                 </div>
