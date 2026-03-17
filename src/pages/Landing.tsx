@@ -262,7 +262,7 @@ const Landing = () => {
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-4 text-center text-muted-foreground space-y-2">
-          <p>© 2024-2026 StreamLiveTV. TOO Oink Tech Ltd Co.</p>
+          <p>© 2024- н.в StreamLiveTV. TOO Oink Tech Ltd Co.</p>
           <p className="text-sm">Все права защищены.</p>
           <p className="text-sm">
             <Link to="/legal#privacy" className="underline underline-offset-4 hover:text-foreground">Политика конфиденциальности</Link>
@@ -270,6 +270,8 @@ const Landing = () => {
             <Link to="/legal#terms" className="underline underline-offset-4 hover:text-foreground">Пользовательское соглашение</Link>
             {" · "}
             <Link to="/legal#rules" className="underline underline-offset-4 hover:text-foreground">Правила платформы</Link>
+                   {" · "}
+            <Link to="/streamtv.html" className="underline underline-offset-4 hover:text-foreground">Сайты  используют наш API (Шаблон найти можно в GitHub OinkTechLtd)</Link>
           </p>
         </div>
       </footer>
