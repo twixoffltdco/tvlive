@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/accordion";
 import { Tv, Radio, Users, Zap, Play, Star, Globe, Shield, Code } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import PlatformBanners from "@/components/PlatformBanners";
 
 interface Channel {
   id: string;
@@ -55,6 +56,7 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <PlatformBanners />
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-accent/20" />

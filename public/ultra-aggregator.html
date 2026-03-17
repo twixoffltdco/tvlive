@@ -132,6 +132,7 @@
         ];
 
         let savedVideos = [];
+        const EMBED_PARENT = window.location.hostname || "localhost";
         let adQueue = 0;
         let totalAdsRequested = 0;
         let midRoll = null;
@@ -158,77 +159,77 @@
             if (url.includes('twitch.tv')) {
                 p = 'twitch';
                 let channel = url.split('/').pop().split('?')[0];
-                embed = `https://player.twitch.tv/?channel=${channel}&parent=$oinktech.blyz.ru&autoplay=true`;
+                embed = `https://player.twitch.tv/?channel=${channel}&parent=${EMBED_PARENT}&autoplay=true`;
             } 
             else if (url.includes('kick.com')) {
                 p = 'kick';
                 let id = url.split('/').pop().split('?')[0];
-                embed = `https://player.kick.com/${id}?autoplay=1&muted=0&parent=oinktech.blyz.ru`;
+                embed = `https://player.kick.com/${id}?autoplay=1&muted=0&parent=${EMBED_PARENT}`;
             }
 			else if (url.includes('w.tv')) {
                 p = 'wtv';
                 let id = url.split('/').pop().split('?')[0];
-                embed = `https://w.tv/${id}&parent=oinktech.blyz.ru`;
+                embed = `https://w.tv/${id}&parent=${EMBED_PARENT}`;
             }
 		    else if (url.includes('matreshka.tv')) {
                 p = 'mattv';
                 let id = url.split('/').pop().split('?')[0];
-                embed = `https://matreshka.tv/embed/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
+                embed = `https://matreshka.tv/embed/${id}?autoplay=1&mute=0&parent=${EMBED_PARENT}`;
             }
 		   else if (url.includes('plvideo.ru')) {
                 p = 'plvideo';
                 let id = url.split('/').pop().split('?')[0];
-                embed = `https://plvideo.ru/embed/${id}?autoplay=1&muted=0&parent=oinktech.blyz.ru`;
+                embed = `https://plvideo.ru/embed/${id}?autoplay=1&muted=0&parent=${EMBED_PARENT}`;
             }
 		    else if (url.includes('catcast.tv')) {
                 p = 'ctv';
                 let id = url.split('/').pop().split('?')[0];
-                embed = `https://catcast.tv/embed/${id}?autoplay=1&muted=0&parent=oinktech.blyz.ru`;
+                embed = `https://catcast.tv/embed/${id}?autoplay=1&muted=0&parent=${EMBED_PARENT}`;
             }
  // Дзен
                 else if (url.includes('dzen.ru') || url.includes('zen.yandex.ru')) {
                     p = 'dzenvk';
                     let id = url.split('/').pop().split('?')[0];
-                    embed = `https://dzen.ru/embed/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
+                    embed = `https://dzen.ru/embed/${id}?autoplay=1&mute=0&parent=${EMBED_PARENT}`;
                 }
 					   else if (url.includes('vimeo.com')) {
                 p = 'Vimeo';
                 let id = url.split('/').pop().split('?')[0];
-                embed = `https://player.vimeo.com/video/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
+                embed = `https://player.vimeo.com/video/${id}?autoplay=1&mute=0&parent=${EMBED_PARENT}`;
             }
 			else if (url.includes('www.dailymotion.com')) {
                 p = 'dailymotion';
                 let id = url.split('/').pop().split('?')[0];
-                embed = `https://www.dailymotion.com/embed/video/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
+                embed = `https://www.dailymotion.com/embed/video/${id}?autoplay=1&mute=0&parent=${EMBED_PARENT}`;
             }
 			else if (url.includes('livestudio-creator.lovable.app')) {
                 p = 'StreamLiveTV';
                 let id = url.split('/').pop().split('?')[0];
-                embed = `https://bbacesemc33e7hd47kfq.containers.yandexcloud.net/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
+                embed = `https://bbacesemc33e7hd47kfq.containers.yandexcloud.net/${id}?autoplay=1&mute=0&parent=${EMBED_PARENT}`;
             }
-    else if (url.includes('livestudio-creator.vercel.app') || url.includes('stlivetv.vercel.app') || url.includes('streamlivetv.vercel.app') || url.includes('livestudio-creator-oinktechltd.onreza.app') || url.includes('stlivetv.netlify.app') || || url.includes('Stream-LiveTV.netlify.app') || url.includes('livestudio-creator.netlify.app') || url.includes('bbacesemc33e7hd47kfq.containers.yandexcloud.net') || url.includes('stlivetv.vercel.app')) {            p = 'StreamLiveTV';
+    else if (url.includes('livestudio-creator.vercel.app') || url.includes('stlivetv.vercel.app') || url.includes('streamlivetv.vercel.app') || url.includes('livestudio-creator-oinktechltd.onreza.app') || url.includes('stlivetv.netlify.app') || url.includes('Stream-LiveTV.netlify.app') || url.includes('livestudio-creator.netlify.app') || url.includes('bbacesemc33e7hd47kfq.containers.yandexcloud.net')) {            p = 'StreamLiveTV';
                 let id = url.split('/').pop().split('?')[0];
-                embed = `https://embesslivestudio.vercel.app/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
+                embed = `https://embesslivestudio.vercel.app/${id}?autoplay=1&mute=0&parent=${EMBED_PARENT}`;
             }
 	else if (url.includes('live.vkvideo.ru')) {
             p = 'vktv';
             let id = url.split('/').pop().split('?')[0];
-            embed = `https://live.vkvideo.ru/embed/${id}?autoplay=1&muted=0&parent=oinktech.blyz.ru`;
+            embed = `https://live.vkvideo.ru/embed/${id}?autoplay=1&muted=0&parent=${EMBED_PARENT}`;
             }
             else if (url.includes('vkvideo.ru') || url.includes('vk.com') || url.includes('vk.ru')) {
                 p = 'vk_video';
                 let m = url.match(/video(-?\d+_\d+)/);
-                if (m) embed = `https://vk.com/video_ext.php?oid=${m[1].split('_')[0]}&id=${m[1].split('_')[1]}&autoplay=1&parent=oinktech.blyz.ru`;
+                if (m) embed = `https://vk.com/video_ext.php?oid=${m[1].split('_')[0]}&id=${m[1].split('_')[1]}&autoplay=1&parent=${EMBED_PARENT}`;
             }
             else if (url.includes('youtube.com') || url.includes('youtu.be')) {
                 p = 'youtube'; crop = 'ultra';
                 let id = url.match(/(?:v=|\/)([a-zA-Z0-9_-]{11})/)?.[1];
-                embed = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&controls=0&modestbranding=1&rel=0&parent=oinktech.blyz.ru`;
+                embed = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&controls=0&modestbranding=1&rel=0&parent=${EMBED_PARENT}`;
             }
             else if (url.includes('rutube.ru')) {
                 p = 'rutube'; crop = 'ultra';
                 let id = url.match(/\/video\/([a-f0-9]+)/)?.[1];
-                embed = `https://rutube.ru/play/embed/${id}?autoplay=1&mute=0&skinColor=00000000&parent=oinktech.blyz.ru`;
+                embed = `https://rutube.ru/play/embed/${id}?autoplay=1&mute=0&skinColor=00000000&parent=${EMBED_PARENT}`;
             }
             else if (url.includes('embed') || url.includes('embedstreamlivetv') || url.includes('embesslivestudio.lovable.app') || url.includes('embedss') || url.includes('embess')) {
 				p = 'StreamLiveTV (partner)';

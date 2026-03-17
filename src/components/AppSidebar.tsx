@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Tv, Radio, Search, User, Settings, PlusCircle, TrendingUp, Menu, X } from "lucide-react";
+import { Home, Tv, Radio, Search, User, PlusCircle, TrendingUp, Menu, X, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ const AppSidebar = () => {
   const userItems = user ? [
     { icon: PlusCircle, label: t("create_channel"), path: "/create-channel" },
     { icon: User, label: t("profile"), path: "/profile" },
+    { icon: Shield, label: "Админка", path: "/admin" },
   ] : [];
 
   return (

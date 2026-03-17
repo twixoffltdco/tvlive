@@ -1300,13 +1300,60 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_banners: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          css_content: string | null
+          html_content: string
+          id: string
+          is_active: boolean
+          js_content: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          css_content?: string | null
+          html_content: string
+          id?: string
+          is_active?: boolean
+          js_content?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          css_content?: string | null
+          html_content?: string
+          id?: string
+          is_active?: boolean
+          js_content?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_banners_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
+          admin_note: string | null
           channel_id: string
           created_at: string | null
           description: string | null
           id: string
           is_verified: boolean | null
+          moderated_at: string | null
+          moderated_by: string | null
           reason: string
           reporter_id: string
           status: string | null
@@ -1314,11 +1361,14 @@ export type Database = {
           verified_at: string | null
         }
         Insert: {
+          admin_note?: string | null
           channel_id: string
           created_at?: string | null
           description?: string | null
           id?: string
           is_verified?: boolean | null
+          moderated_at?: string | null
+          moderated_by?: string | null
           reason: string
           reporter_id: string
           status?: string | null
@@ -1326,11 +1376,14 @@ export type Database = {
           verified_at?: string | null
         }
         Update: {
+          admin_note?: string | null
           channel_id?: string
           created_at?: string | null
           description?: string | null
           id?: string
           is_verified?: boolean | null
+          moderated_at?: string | null
+          moderated_by?: string | null
           reason?: string
           reporter_id?: string
           status?: string | null
@@ -1343,6 +1396,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_moderated_by_fkey"
+            columns: ["moderated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
