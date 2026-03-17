@@ -206,8 +206,7 @@
                 let id = url.split('/').pop().split('?')[0];
                 embed = `https://bbacesemc33e7hd47kfq.containers.yandexcloud.net/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
             }
-	else if (url.includes('livestudio-creator.vercel.app') || url.includes('stlivetv.vercel.app'  || url.includes('streamlivetv.vercel.app')  || url.includes('livestudio-creator-oinktechltd.onreza.app')  || url.includes('stlivetv.netfily.app')  || url.includes('livestudio-creator.netfily.app')  || url.includes('bbacesemc33e7hd47kfq.containers.yandexcloud.net')  || url.includes('stlivetv.vercel.app' || url.includes('stlivetv.vercel.app')  || url.includes('stlivetv.vercel.app')  || url.includes('stlivetv.vercel.app')) {
-                p = 'StreamLiveTV';
+    else if (url.includes('livestudio-creator.vercel.app') || url.includes('stlivetv.vercel.app') || url.includes('streamlivetv.vercel.app') || url.includes('livestudio-creator-oinktechltd.onreza.app') || url.includes('stlivetv.netlify.app') || || url.includes('Stream-LiveTV.netlify.app') || url.includes('livestudio-creator.netlify.app') || url.includes('bbacesemc33e7hd47kfq.containers.yandexcloud.net') || url.includes('stlivetv.vercel.app')) {            p = 'StreamLiveTV';
                 let id = url.split('/').pop().split('?')[0];
                 embed = `https://embesslivestudio.vercel.app/${id}?autoplay=1&mute=0&parent=oinktech.blyz.ru`;
             }
@@ -231,7 +230,7 @@
                 let id = url.match(/\/video\/([a-f0-9]+)/)?.[1];
                 embed = `https://rutube.ru/play/embed/${id}?autoplay=1&mute=0&skinColor=00000000&parent=oinktech.blyz.ru`;
             }
-else if (url.includes('embed') || url.includes('embedstreamlivetv'  || url.includes('embesslivestudio.lovable.app')  || url.includes('embedss')  || url.includes('embess')) {
+            else if (url.includes('embed') || url.includes('embedstreamlivetv'  || url.includes('embesslivestudio.lovable.app')  || url.includes('embedss')  || url.includes('embess')) {
                 p = 'StreamLiveTV (partner)';
                 let id = url.split('/').pop().split('?')[0];
                 embed = `https://embesslivestudio.lovable.app/player?channel=${id}`;
