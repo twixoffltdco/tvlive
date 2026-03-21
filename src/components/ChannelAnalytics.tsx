@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDateSafely } from "@/lib/dateFormat";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 
@@ -55,7 +56,7 @@ const ChannelAnalytics = ({ channelId }: ChannelAnalyticsProps) => {
       });
 
       const dailyViews = Array.from(dailyMap.entries()).map(([date, views]) => ({
-        date: new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }),
+        date: formatDateSafely(date, 'ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }),
         views
       }));
 

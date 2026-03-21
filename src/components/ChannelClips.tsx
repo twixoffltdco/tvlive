@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateSafely } from "@/lib/dateFormat";
 import {
   Dialog,
   DialogContent,
@@ -114,9 +115,7 @@ const ChannelClips = ({ channelId, isOwner }: ChannelClipsProps) => {
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
-  };
+  const formatDate = (dateStr: string) => formatDateSafely(dateStr, "ru-RU", { day: "numeric", month: "short", year: "numeric" });
 
   return (
     <div className="space-y-4">

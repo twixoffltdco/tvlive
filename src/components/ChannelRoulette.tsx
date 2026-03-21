@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateSafely } from "@/lib/dateFormat";
 import { Dices, Plus, Trash2, Sparkles, History, Trophy, Settings } from "lucide-react";
 import {
   Dialog,
@@ -339,9 +340,10 @@ const ChannelRoulette = ({ channelId, isOwner, userPoints = 0, onPointsChange }:
                               {spin.prize_title}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {new Date(spin.spun_at).toLocaleDateString("ru-RU", {
+                              {formatDateSafely(spin.spun_at, "ru-RU", {
                                 day: "numeric",
                                 month: "short",
+                                year: "numeric",
                                 hour: "2-digit",
                                 minute: "2-digit",
                               })}

@@ -13,8 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { format } from "date-fns";
-import { ru } from "date-fns/locale";
+import { formatDateSafely, toDatetimeLocalValue } from "@/lib/dateFormat";
 
 interface ScheduleItem {
   id: string;
@@ -155,20 +154,20 @@ const ChannelSchedule = ({ channelId, isOwner }: ChannelScheduleProps) => {
     setEditingId(item.id);
     setTitle(item.title);
     setDescription(item.description || "");
-    setStartTime(item.start_time);
-    setEndTime(item.end_time);
+    setStartTime(toDatetimeLocalValue(item.start_time));
+    setEndTime(toDatetimeLocalValue(item.end_time));
     setSourceType(item.source_type || "media");
     setSourceUrl(item.source_url || "");
     setIsDialogOpen(true);
   };
 
-  const formatDateTime = (dateString: string) => {
-    try {
-      return format(new Date(dateString), "dd MMM HH:mm", { locale: ru });
-    } catch {
-      return dateString;
-    }
-  };
+  const formatDateTime = (dateString: string) => formatDateSafely(dateString, "ru-RU", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   if (loading) {
     return <div className="animate-pulse h-32 bg-muted rounded-lg" />;
