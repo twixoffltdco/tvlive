@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateSafely } from "@/lib/dateFormat";
 import { Crown, Plus, Trash2, Clock, Gift, UserPlus } from "lucide-react";
 import {
   Dialog,
@@ -207,7 +208,7 @@ const PremiumSubscriptions = ({ channelId, isOwner, userPoints = 0, onPointsChan
   const getExpirationDate = (subId: string) => {
     const sub = userSubs.find(s => s.subscription_id === subId);
     if (sub) {
-      return new Date(sub.expires_at).toLocaleDateString("ru-RU");
+      return formatDateSafely(sub.expires_at, "ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
     }
     return null;
   };

@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Send, Crown, Shield, UserPlus, UserMinus, Pin, Ban, MoreVertical, Bot, Users, Mic, Trash2, Gift, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateSafely } from "@/lib/dateFormat";
 import { useLanguage } from "@/contexts/LanguageContext";
 import ViewerCounter from "@/components/ViewerCounter";
 import ChatEmojiPicker from "@/components/ChatEmojiPicker";
@@ -238,7 +239,7 @@ const EnhancedLiveChat = ({ channelId, channelOwnerId }: EnhancedLiveChatProps) 
       if (!banExpires || banExpires > now) {
         const reason = blockedData.ban_reason || "Без указания причины";
         const expiresText = banExpires 
-          ? `до ${banExpires.toLocaleDateString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+          ? `до ${formatDateSafely(banExpires, "ru-RU", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`
           : "навсегда";
         
         setCanWrite(false);
