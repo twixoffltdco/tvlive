@@ -2,13 +2,17 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StreamTV — Прямые эфиры</title>
+<title>streamtvlive.github.io</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="StreamTV">
 <meta name="theme-color" content="#080c14">
+<title>StreamTV</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -341,6 +345,12 @@ const ALLOWED = ['oinktech', 'twixoff', 'ТВ КАНАЛЫ'];
 const SOURCES = [
   { id:'embess',  label:'Embess Studio', url: id => `https://embesslivestudio.lovable.app/player?channel=${id}` },
   { id:'native',  label:'StreamLiveTV',  url: id => `https://bbacesemc33e7hd47kfq.containers.yandexcloud.net/embed/${id}` },
+  { id:'embess-new', label:'Embess', url: id => `https://embesslivestudio.vercel.app/embed/${id}` },
+  { id:'embess-proxy', label:'Proxy Embess', url: id => `https://cors-anywhere.herokuapp.com/embesslivestudio.vercel.app/embed/${id}` },
+  { id:'flow', label:'Flow', url: id => `https://stlivetv.netlify.app/embed/${id}` },
+  { id:'Оригинал', label:'Оригинал (Не рекомендуется с 1 апреля 2026 закрытие данного источника)', url: id => `https://livestudio-creator.lovable.app/embed/${id}` },
+  { id:'Оригинал2', label:'Оригинал', url: id => `https://bbacesemc33e7hd47kfq.containers.yandexcloud.net/embed/${id}` },
+  { id:'namy.sh', label:'namy.sh', url: id => `https://livetv.base44.app/embed?url=https://embesslivestudio.vercel.app/embed/${id}` },
 ];
 
 // ══════════════════════════════════════════════
@@ -739,4 +749,3 @@ function esc(s) {
 </script>
 </body>
 </html>
- 
