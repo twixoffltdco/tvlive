@@ -16,6 +16,27 @@ const DUPLICATE_REASON_KEYWORDS = [
   "скам",
 ];
 
+const BLOCKED_REASON_KEYWORDS = [
+  ...DUPLICATE_REASON_KEYWORDS,
+  "blocked",
+  "block",
+  "ban",
+  "banned",
+  "hidden",
+  "moderation",
+  "moderated",
+  "violation",
+  "заблок",
+  "блок",
+  "скрыт",
+  "скрыт модерацией",
+  "модерац",
+  "наруш",
+  "жалоб",
+  "auto",
+  "автоматичес",
+];
+
 const normalize = (value: string | null | undefined) => (value || "").trim().toLowerCase();
 
 const normalizeForDuplicateKey = (value: string | null | undefined) =>
@@ -100,7 +121,7 @@ export const hasDuplicateModerationReason = (hiddenReason: string | null | undef
 
 export const hasBlockedModerationReason = (hiddenReason: string | null | undefined) => {
   const normalized = normalize(hiddenReason);
-  return DUPLICATE_REASON_KEYWORDS.some((keyword) => normalized.includes(keyword));
+  return BLOCKED_REASON_KEYWORDS.some((keyword) => normalized.includes(keyword));
 };
 
 const hasSuspiciousLowEffortText = (title?: string | null, description?: string | null) => {
@@ -132,8 +153,6 @@ interface DiscoveryCensorshipInput {
   hiddenReason?: string | null;
 }
 
-
-
 export const getDiscoveryCensorshipReason = ({
   username,
   title,
@@ -149,7 +168,7 @@ export const getDiscoveryCensorshipReason = ({
     return hiddenReason || "Дубликат или выдача себя за другой канал";
   }
 
-  if (hasBlockedModerationReason(hiddenReason)) {
+  if (isHidden || hasBlockedModerationReason(hiddenReason)) {
     return hiddenReason || "Канал скрыт модерацией";
   }
 

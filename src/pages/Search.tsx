@@ -41,7 +41,8 @@ const Search = () => {
   }, [searchParams]);
 
   const searchChannels = async (searchQuery: string) => {
-    if (!searchQuery.trim()) {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
       setChannels([]);
       return;
     }
@@ -64,10 +65,9 @@ const Search = () => {
             username
           )
         `)
-        .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
         .eq("is_hidden", false)
         .order("viewer_count", { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (error) throw error;
 
@@ -83,6 +83,14 @@ const Search = () => {
       
       const cleanData = (data || [])
         .filter((channel: any) => !bannedUsers.has(channel.user_id))
+        .filter((channel: any) => {
+          const haystack = [channel.title, channel.description, channel.profiles?.username]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+
+          return haystack.includes(normalizedQuery);
+        })
         .filter((channel: any) => !shouldCensorChannelFromDiscovery({
           username: channel.profiles?.username,
           title: channel.title,

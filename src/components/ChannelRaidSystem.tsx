@@ -10,7 +10,7 @@ import { Zap, Search, Users, ArrowRight, AlertCircle } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { isBlockedDuplicateChannel } from "@/lib/channelSafety";
+import { deduplicateChannelsByTitle, shouldCensorChannelFromDiscovery } from "@/lib/channelSafety";
 
 interface ChannelRaidSystemProps {
   channelId: string;
@@ -59,26 +59,62 @@ const ChannelRaidSystem = ({ channelId, isOwner, mediaCount = 0 }: ChannelRaidSy
   }, [channelId]);
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
+      setResults([]);
+      return;
+    }
+
     setSearching(true);
-    const { data } = await supabase
-      .from("channels")
-      .select("id, title, thumbnail_url, channel_type, viewer_count, description, is_hidden, hidden_reason, profiles:user_id(username)")
-      .neq("id", channelId)
-      .ilike("title", `%${searchQuery}%`)
-      .eq("is_hidden", false)
-      .limit(10);
 
-    const safeResults = (data || []).filter((channel: any) => !isBlockedDuplicateChannel({
-      username: channel.profiles?.username,
-      title: channel.title,
-      description: channel.description,
-      isHidden: channel.is_hidden,
-      hiddenReason: channel.hidden_reason,
-    }));
+    try {
+      const { data, error } = await supabase
+        .from("channels")
+        .select("id, user_id, title, thumbnail_url, channel_type, viewer_count, description, is_hidden, hidden_reason, profiles:user_id(username)")
+        .neq("id", channelId)
+        .eq("is_hidden", false)
+        .order("viewer_count", { ascending: false })
+        .limit(30);
 
-    setResults(safeResults);
-    setSearching(false);
+      if (error) throw error;
+
+      const userIds = Array.from(new Set((data || []).map((channel: any) => channel.user_id).filter(Boolean)));
+      let bannedUsers = new Set<string>();
+      if (userIds.length > 0) {
+        const { data: bannedData } = await supabase
+          .from("banned_users")
+          .select("user_id")
+          .in("user_id", userIds);
+        bannedUsers = new Set((bannedData || []).map((row: any) => row.user_id));
+      }
+
+      const safeResults = deduplicateChannelsByTitle(
+        (data || [])
+          .filter((channel: any) => !bannedUsers.has(channel.user_id))
+          .filter((channel: any) => {
+            const haystack = [channel.title, channel.description, channel.profiles?.username]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+
+            return haystack.includes(normalizedQuery);
+          })
+          .filter((channel: any) => !shouldCensorChannelFromDiscovery({
+            username: channel.profiles?.username,
+            title: channel.title,
+            description: channel.description,
+            isHidden: channel.is_hidden,
+            hiddenReason: channel.hidden_reason,
+          })) as any[],
+      );
+
+      setResults(safeResults as SearchResult[]);
+    } catch (error) {
+      console.error("Error searching raid channels:", error);
+      toast({ title: "Ошибка", description: "Не удалось найти каналы для рейда", variant: "destructive" });
+    } finally {
+      setSearching(false);
+    }
   };
 
   const startRaid = async (target: SearchResult) => {

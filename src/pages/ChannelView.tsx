@@ -196,6 +196,67 @@ const ChannelView = () => {
 
   // Subscribe to playback state changes for sync
   useEffect(() => {
+    if (!id || !channel) return;
+
+    const raidChannel = supabase
+      .channel(`source-raid-${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "channel_raids",
+          filter: `source_channel_id=eq.${id}`,
+        },
+        async (payload: any) => {
+          const targetChannelId = payload.new?.target_channel_id as string | undefined;
+          if (!targetChannelId) return;
+
+          const shouldStayOnSourceChannel = user?.id === channel.user_id;
+          if (shouldStayOnSourceChannel) {
+            return;
+          }
+
+          const { data: targetChannel, error } = await supabase
+            .from("channels")
+            .select("id, title, is_hidden, hidden_reason, description, profiles:user_id(username)")
+            .eq("id", targetChannelId)
+            .maybeSingle();
+
+          if (error || !targetChannel) {
+            console.error("Failed to resolve raid target:", error);
+            return;
+          }
+
+          if (shouldCensorChannelFromDiscovery({
+            username: targetChannel.profiles?.username,
+            title: targetChannel.title,
+            description: targetChannel.description,
+            isHidden: targetChannel.is_hidden,
+            hiddenReason: targetChannel.hidden_reason,
+          })) {
+            console.warn("Raid target was hidden from discovery, redirect skipped:", targetChannelId);
+            return;
+          }
+
+          toast({
+            title: "🚀 Рейд начался",
+            description: payload.new?.message || `Перенаправляем вас на канал "${targetChannel.title}"...`,
+          });
+
+          window.setTimeout(() => {
+            navigate(`/channel/${targetChannel.id}`);
+          }, 1500);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(raidChannel);
+    };
+  }, [id, channel, user?.id, navigate, toast]);
+
+  useEffect(() => {
     if (!id) return;
 
     const channel = supabase
