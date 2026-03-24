@@ -11,6 +11,14 @@ import { Link } from "react-router-dom";
 const Changelog = () => {
   const updates = [
     {
+    version: "3.0.2",
+      date: "Апрель 2026",
+      title: "StreamLiveTV 3.0.2 — Полный переезд на новые резервные домены",
+      description: "Полностью рабочая платформа без зависимостей",
+      features: [
+        { icon: Globe, text: "Переезд с livestudio-creator.lovable.app на новые резервные домены включаяя На Российских серверах" },
+      ],
+    },
       version: "3.0.1",
       date: "Март 2026",
       title: "StreamLiveTV 3.0.1 — Рейды, модерация, PlayerJS, SmotrimFilms",
