@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import EnhancedLiveChat from "@/components/EnhancedLiveChat";
 import { Lock, AlertTriangle } from "lucide-react";
 import UniversalPlayer, { SourceType } from "@/components/UniversalPlayer";
-import { getDiscoveryCensorshipReason, shouldCensorChannelFromDiscovery } from "@/lib/channelSafety";
+import { PLATFORM_POLICY_TEXT, getChannelModerationReason, shouldBlockChannelAccess } from "@/lib/channelSafety";
 import { resolveLiveStreamUrl } from "@/lib/liveStream";
 import { getActivePlaybackQueue, getPreferredPlayableMedia } from "@/lib/mediaSchedule";
 import { useRealtimeChannelSync } from "@/hooks/useRealtimeChannelSync";
@@ -181,19 +181,31 @@ const PopoutPlayer = () => {
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="animate-pulse text-foreground">Загрузка...</div></div>;
   if (!channel) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-foreground">Канал не найден</p></div>;
 
-  const isBlocked = shouldCensorChannelFromDiscovery({
+  const isBlocked = shouldBlockChannelAccess({
     username: channel.profiles?.username,
     title: channel.title,
     description: channel.description,
     isHidden: channel.is_hidden,
     hiddenReason: channel.hidden_reason,
+    paidOnly: channel.paid_only,
+    mediaSources: mediaContent.map((media) => ({
+      title: media.title,
+      sourceType: media.source_type,
+      fileUrl: media.file_url,
+    })),
   });
-  const blockReason = getDiscoveryCensorshipReason({
+  const blockReason = getChannelModerationReason({
     username: channel.profiles?.username,
     title: channel.title,
     description: channel.description,
     isHidden: channel.is_hidden,
     hiddenReason: channel.hidden_reason,
+    paidOnly: channel.paid_only,
+    mediaSources: mediaContent.map((media) => ({
+      title: media.title,
+      sourceType: media.source_type,
+      fileUrl: media.file_url,
+    })),
   });
 
   if (isBlocked) {
@@ -204,7 +216,7 @@ const PopoutPlayer = () => {
           <AlertTriangle className="w-14 h-14 text-destructive mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">{ownerMessage ? "Ваш канал был заблокирован" : "Данный канал больше не доступен"}</h2>
           {blockReason && <p className="text-sm text-destructive mb-2">Причина: {blockReason}</p>}
-          <p className="text-muted-foreground text-sm">Канал недоступен в Popout-плеере.</p>
+          <p className="text-muted-foreground text-sm">{ownerMessage ? "Канал недоступен в Popout-плеере." : PLATFORM_POLICY_TEXT}</p>
         </div>
       </div>
     );

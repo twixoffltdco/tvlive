@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import DevToolsBlocker from "@/components/DevToolsBlocker";
 import MobileNavigation from "@/components/MobileNavigation";
@@ -10,6 +10,7 @@ import AppSidebar from "@/components/AppSidebar";
 import SeasonalEffects from "@/components/SeasonalEffects";
 import ThemeSelector from "@/components/ThemeSelector";
 import RecommendationBanner from "@/components/RecommendationBanner";
+import PlatformPolicyBanner from "@/components/PlatformPolicyBanner";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import CreateChannel from "./pages/CreateChannel";
@@ -29,6 +30,17 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const ConditionalPlatformPolicyBanner = () => {
+  const location = useLocation();
+  const hiddenOnRoutes = ["/embed/", "/popout/"];
+
+  if (hiddenOnRoutes.some((prefix) => location.pathname.startsWith(prefix))) {
+    return null;
+  }
+
+  return <PlatformPolicyBanner />;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <LanguageProvider>
@@ -40,6 +52,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <ConditionalPlatformPolicyBanner />
           <AppSidebar />
           <Routes>
             <Route path="/" element={<Landing />} />

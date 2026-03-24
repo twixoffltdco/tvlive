@@ -32,12 +32,13 @@ interface MediaManagerProps {
   channelType: "tv" | "radio";
   channelTitle: string;
   storageUsage: number;
+  isPaidOnly: boolean;
   onStorageUpdate: () => void;
 }
 
 const MYOINKTV_ORIGIN = "https://my-oink-tv.base44.app";
 
-const MediaManager = ({ channelId, channelType, channelTitle, storageUsage, onStorageUpdate }: MediaManagerProps) => {
+const MediaManager = ({ channelId, channelType, channelTitle, storageUsage, isPaidOnly, onStorageUpdate }: MediaManagerProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { notifySubscribers } = useNotifySubscribers();
@@ -121,6 +122,15 @@ const MediaManager = ({ channelId, channelType, channelTitle, storageUsage, onSt
 
     if (sourceType === "myoinktv" && !validateMyOinkTvUrl(finalUrl)) {
       toast({ title: "Ошибка", description: "Используйте только embed-ссылки MyOinkTV", variant: "destructive" });
+      return;
+    }
+
+    if (sourceType === "smotrimfilms" && !isPaidOnly) {
+      toast({
+        title: "Источник запрещён",
+        description: "SmotrimFilms можно использовать только на каналах с платным доступом. Иначе канал блокируется за нарушение авторских прав.",
+        variant: "destructive",
+      });
       return;
     }
 

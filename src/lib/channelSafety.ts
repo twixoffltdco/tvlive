@@ -92,6 +92,32 @@ const JUNK_DISCOVERY_KEYWORDS = [
 ];
 
 export const BLOCKED_CHANNEL_TEXT = "Данный канал был заблокирован за нарушение правил платформы.";
+export const PLATFORM_POLICY_TEXT = "Канал недоступен: он был заблокирован за нарушение правил платформы.";
+
+const FORBIDDEN_CONTENT_KEYWORDS = [
+  "18+",
+  "18 plus",
+  "xxx",
+  "porn",
+  "porno",
+  "порно",
+  "эрот",
+  "sex",
+  "секс",
+  "nsfw",
+  "adult",
+  "казино",
+  "casino",
+  "bet",
+  "ставк",
+  "slot",
+  "слот",
+  "букмек",
+  "gambl",
+  "гембл",
+];
+
+const COPYRIGHT_RESTRICTED_SOURCE_TYPES = new Set(["smotrimfilms"]);
 
 export const isOfficialProtectedAccount = (username: string | null | undefined) => {
   const normalized = normalize(username);
@@ -192,6 +218,76 @@ export const getDiscoveryCensorshipReason = ({
 };
 export const shouldCensorChannelFromDiscovery = (input: DiscoveryCensorshipInput) => {
   return Boolean(getDiscoveryCensorshipReason(input));
+};
+
+interface ChannelMediaSafetyInput extends DiscoveryCensorshipInput {
+  paidOnly?: boolean | null;
+  mediaSources?: Array<{
+    title?: string | null;
+    sourceType?: string | null;
+    fileUrl?: string | null;
+    sourceUrl?: string | null;
+  }>;
+}
+
+const hasForbiddenContentKeyword = (...parts: Array<string | null | undefined>) => {
+  const normalized = normalize(parts.filter(Boolean).join(" "));
+  if (!normalized) return false;
+  return FORBIDDEN_CONTENT_KEYWORDS.some((keyword) => normalized.includes(keyword));
+};
+
+const hasRestrictedCopyrightSource = (
+  paidOnly: boolean | null | undefined,
+  mediaSources: ChannelMediaSafetyInput["mediaSources"],
+) => {
+  if (paidOnly || !mediaSources?.length) {
+    return false;
+  }
+
+  return mediaSources.some((media) =>
+    COPYRIGHT_RESTRICTED_SOURCE_TYPES.has(normalize(media.sourceType)),
+  );
+};
+
+export const getChannelModerationReason = ({
+  username,
+  title,
+  description,
+  isHidden,
+  hiddenReason,
+  paidOnly,
+  mediaSources,
+}: ChannelMediaSafetyInput) => {
+  const baseReason = getDiscoveryCensorshipReason({
+    username,
+    title,
+    description,
+    isHidden,
+    hiddenReason,
+  });
+
+  if (baseReason) {
+    return baseReason;
+  }
+
+  if (hasRestrictedCopyrightSource(paidOnly, mediaSources)) {
+    return "Канал заблокирован за нарушение авторских прав: источник SmotrimFilms доступен только для платного контента.";
+  }
+
+  if (
+    hasForbiddenContentKeyword(username, title, description, hiddenReason) ||
+    mediaSources?.some((media) =>
+      hasForbiddenContentKeyword(media.title, media.fileUrl, media.sourceUrl, media.sourceType),
+    )
+  ) {
+    return "Канал заблокирован за рекламу или распространение 18+, казино и другого запрещённого контента.";
+  }
+
+  return null;
+};
+
+export const shouldBlockChannelAccess = (input: ChannelMediaSafetyInput) => {
+  return Boolean(getChannelModerationReason(input));
 };
 
 interface DuplicateGuardInput {

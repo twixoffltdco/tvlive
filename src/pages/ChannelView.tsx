@@ -51,7 +51,7 @@ import { useScheduledPlayback } from "@/hooks/useScheduledPlayback";
 import { useRealtimeChannelSync } from "@/hooks/useRealtimeChannelSync";
 import { Film, Download, Crown, Dices, Lock, Zap } from "lucide-react";
 import PaidContentGate from "@/components/PaidContentGate";
-import { BLOCKED_CHANNEL_TEXT, getDiscoveryCensorshipReason, shouldCensorChannelFromDiscovery } from "@/lib/channelSafety";
+import { BLOCKED_CHANNEL_TEXT, PLATFORM_POLICY_TEXT, getChannelModerationReason, shouldBlockChannelAccess, shouldCensorChannelFromDiscovery } from "@/lib/channelSafety";
 import { resolveLiveStreamUrl } from "@/lib/liveStream";
 import { getNextPlayableMedia } from "@/lib/mediaSchedule";
 
@@ -895,19 +895,31 @@ const ChannelView = () => {
   const canManage = isOwner || isAdmin; // admin has nearly full access
   const canStream = isOwner || isAdmin || isHost; // host can only stream
 
-  const discoveryBlockReason = getDiscoveryCensorshipReason({
+  const discoveryBlockReason = getChannelModerationReason({
     username: channel.profiles?.username,
     title: channel.title,
     description: channel.description,
     isHidden: channel.is_hidden,
     hiddenReason: channel.hidden_reason,
+    paidOnly: channel.paid_only,
+    mediaSources: mediaContent.map((media) => ({
+      title: media.title,
+      sourceType: media.source_type,
+      fileUrl: media.file_url,
+    })),
   });
-  const isBlockedForView = shouldCensorChannelFromDiscovery({
+  const isBlockedForView = shouldBlockChannelAccess({
     username: channel.profiles?.username,
     title: channel.title,
     description: channel.description,
     isHidden: channel.is_hidden,
     hiddenReason: channel.hidden_reason,
+    paidOnly: channel.paid_only,
+    mediaSources: mediaContent.map((media) => ({
+      title: media.title,
+      sourceType: media.source_type,
+      fileUrl: media.file_url,
+    })),
   });
 
   if (isBlockedForView) {
@@ -918,7 +930,7 @@ const ChannelView = () => {
           <div className="text-center max-w-xl p-8 border border-destructive/30 rounded-xl bg-destructive/5">
             <Trash2 className="w-16 h-16 text-destructive mx-auto mb-4" />
             <h1 className="text-2xl font-bold mb-2">{isOwner ? "Ваш канал был заблокирован" : "Данный канал больше не доступен"}</h1>
-            <p className="text-muted-foreground mb-2">{isOwner ? BLOCKED_CHANNEL_TEXT : "Канал заблокирован. Причина: низкое качество или нарушение правил платформы."}</p>
+            <p className="text-muted-foreground mb-2">{isOwner ? BLOCKED_CHANNEL_TEXT : PLATFORM_POLICY_TEXT}</p>
             {discoveryBlockReason && <p className="text-sm text-destructive font-medium mb-4">Причина: {discoveryBlockReason}</p>}
             <Button onClick={() => navigate("/search")} variant="outline">
               Перейти к поиску
@@ -1392,13 +1404,14 @@ const ChannelView = () => {
               <div className="mb-4">
                 <ChannelRaidSystem channelId={channel.id} isOwner={canManage} mediaCount={mediaContent.length} />
               </div>
-              <MediaManager
-                channelId={channel.id}
-                channelType={channel.channel_type}
-                channelTitle={channel.title}
-                storageUsage={storageUsage}
-                onStorageUpdate={checkStorageUsage}
-              />
+                    <MediaManager
+                      channelId={channel.id}
+                      channelType={channel.channel_type}
+                      channelTitle={channel.title}
+                      storageUsage={storageUsage}
+                      isPaidOnly={channel.paid_only}
+                      onStorageUpdate={checkStorageUsage}
+                    />
             </TabsContent>
           )}
 

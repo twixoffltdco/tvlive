@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Lock, AlertTriangle } from "lucide-react";
 import UniversalPlayer, { SourceType } from "@/components/UniversalPlayer";
-import { getDiscoveryCensorshipReason, shouldCensorChannelFromDiscovery } from "@/lib/channelSafety";
+import { PLATFORM_POLICY_TEXT, getChannelModerationReason, shouldBlockChannelAccess } from "@/lib/channelSafety";
 import { resolveLiveStreamUrl } from "@/lib/liveStream";
 import { getActivePlaybackQueue, getPreferredPlayableMedia } from "@/lib/mediaSchedule";
 import { useRealtimeChannelSync } from "@/hooks/useRealtimeChannelSync";
@@ -175,19 +175,31 @@ const EmbedPlayer = () => {
     return <div className="w-full h-full flex items-center justify-center bg-background"><p className="text-foreground">Канал не найден</p></div>;
   }
 
-  const isBlocked = shouldCensorChannelFromDiscovery({
+  const isBlocked = shouldBlockChannelAccess({
     username: channel.profiles?.username,
     title: channel.title,
     description: channel.description,
     isHidden: channel.is_hidden,
     hiddenReason: channel.hidden_reason,
+    paidOnly: channel.paid_only,
+    mediaSources: mediaContent.map((media) => ({
+      title: media.title,
+      sourceType: media.source_type,
+      fileUrl: media.file_url,
+    })),
   });
-  const blockReason = getDiscoveryCensorshipReason({
+  const blockReason = getChannelModerationReason({
     username: channel.profiles?.username,
     title: channel.title,
     description: channel.description,
     isHidden: channel.is_hidden,
     hiddenReason: channel.hidden_reason,
+    paidOnly: channel.paid_only,
+    mediaSources: mediaContent.map((media) => ({
+      title: media.title,
+      sourceType: media.source_type,
+      fileUrl: media.file_url,
+    })),
   });
 
   if (isBlocked) {
@@ -198,7 +210,7 @@ const EmbedPlayer = () => {
           <AlertTriangle className="w-14 h-14 text-destructive mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">{ownerMessage ? "Ваш канал был заблокирован" : "Данный канал больше не доступен"}</h2>
           {blockReason && <p className="text-sm text-destructive mb-2">Причина: {blockReason}</p>}
-          <p className="text-muted-foreground text-sm">Этот канал недоступен в Embed-плеере.</p>
+          <p className="text-muted-foreground text-sm">{ownerMessage ? "Этот канал недоступен в Embed-плеере." : PLATFORM_POLICY_TEXT}</p>
         </div>
       </div>
     );

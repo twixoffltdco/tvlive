@@ -16,7 +16,7 @@ import UniversalPlayer, { SourceType } from "@/components/UniversalPlayer";
 import DataConsentBanner from "@/components/DataConsentBanner";
 import { useShortsRecommendations } from "@/hooks/useShortsRecommendations";
 import { resolveLiveStreamUrl } from "@/lib/liveStream";
-import { deduplicateChannelsByTitle, shouldCensorChannelFromDiscovery } from "@/lib/channelSafety";
+import { deduplicateChannelsByTitle, shouldBlockChannelAccess } from "@/lib/channelSafety";
 import { getActivePlaybackQueue, getCurrentlyPlayableMedia, getPreferredPlayableMedia } from "@/lib/mediaSchedule";
 
 interface Channel {
@@ -33,6 +33,7 @@ interface Channel {
   category_id?: string | null;
   mux_playback_id?: string | null;
   stream_key?: string | null;
+  paid_only?: boolean;
   is_hidden?: boolean;
   hidden_reason?: string | null;
   profiles: {
@@ -122,7 +123,7 @@ const Shorts = () => {
     
     const { data, error } = await supabase
       .from("channels")
-      .select(`id, title, description, thumbnail_url, channel_type, is_live, streaming_method, viewer_count, user_id, created_at, category_id, mux_playback_id, stream_key, is_hidden, hidden_reason, profiles:user_id (username, avatar_url)`)
+      .select(`id, title, description, thumbnail_url, channel_type, is_live, streaming_method, viewer_count, user_id, created_at, category_id, mux_playback_id, stream_key, paid_only, is_hidden, hidden_reason, profiles:user_id (username, avatar_url)`)
       .eq("is_hidden", false)
       .order("viewer_count", { ascending: false })
       .limit(500);
@@ -162,12 +163,18 @@ const Shorts = () => {
 
     const withMedia = (data as any[])
       .filter((ch) => !bannedUsers.has(ch.user_id))
-      .filter((ch) => !shouldCensorChannelFromDiscovery({
+      .filter((ch) => !shouldBlockChannelAccess({
         username: ch.profiles?.username,
         title: ch.title,
         description: ch.description,
         isHidden: ch.is_hidden,
         hiddenReason: ch.hidden_reason,
+        paidOnly: ch.paid_only,
+        mediaSources: (mediaMap[ch.id] || []).map((media) => ({
+          title: media.title,
+          sourceType: media.source_type,
+          fileUrl: media.file_url,
+        })),
       }))
       .filter((ch) => ch.is_live || getCurrentlyPlayableMedia(mediaMap[ch.id] || []).length > 0);
     const deduped = deduplicateChannelsByTitle(withMedia as any[]);
