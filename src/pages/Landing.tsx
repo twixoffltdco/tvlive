@@ -273,6 +273,8 @@ const Landing = () => {
             {" · "}
             <Link to="/legal#rules" className="underline underline-offset-4 hover:text-foreground">Правила платформы</Link>
                    {" · "}
+            <Link to="/live/index.html" className="underline underline-offset-4 hover:text-foreground">Live Streams</Link>
+                   {" · "}
             <Link to="/streamtv.html" className="underline underline-offset-4 hover:text-foreground">Сайты  используют наш API (Шаблон найти можно в GitHub OinkTechLtd)</Link>
           </p>
         </div>
