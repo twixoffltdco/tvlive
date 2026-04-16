@@ -8,6 +8,17 @@ let hlsInstance = null;
 let dashPlayer = null;
 let sidebarOpen = true;
 let controlsTimer = null;
+let startupWatchdog = null;
+
+const HLS_CDNS = [
+  'https://cdn.jsdelivr.net/npm/hls.js@latest',
+  'https://unpkg.com/hls.js@latest/dist/hls.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.17/hls.min.js'
+];
+const DASH_CDNS = [
+  'https://cdn.dashjs.org/latest/dash.all.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/dashjs/4.7.4/dash.all.min.js'
+];
 
 const video = document.getElementById('videoPlayer');
 const channelList = document.getElementById('channelList');
@@ -27,13 +38,50 @@ const controlsOverlay = document.getElementById('controlsOverlay');
 const toast = document.getElementById('toast');
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
   setVolume(80);
   setupVideoEvents();
   setupControlsHide();
+  await ensurePlaybackEngines();
   const saved = localStorage.getItem('stv_last_url');
   if (saved) document.getElementById('m3uUrl').value = saved;
 });
+
+
+
+function loadScriptWithFallback(urls, checker) {
+  if (checker()) return Promise.resolve(true);
+  const [first, ...rest] = urls;
+  if (!first) return Promise.resolve(false);
+
+  return new Promise(resolve => {
+    const script = document.createElement('script');
+    script.src = first;
+    script.async = true;
+    script.crossOrigin = 'anonymous';
+    script.onload = () => resolve(checker());
+    script.onerror = () => resolve(false);
+    document.head.appendChild(script);
+  }).then(ok => ok ? true : loadScriptWithFallback(rest, checker));
+}
+
+async function ensurePlaybackEngines() {
+  await Promise.all([
+    loadScriptWithFallback(HLS_CDNS, () => typeof window.Hls !== 'undefined'),
+    loadScriptWithFallback(DASH_CDNS, () => typeof window.dashjs !== 'undefined')
+  ]);
+}
+
+function startStartupWatchdog() {
+  clearTimeout(startupWatchdog);
+  startupWatchdog = setTimeout(() => {
+    if (video.readyState < 2 && currentChannel) {
+      showToast('⚠️ Поток долго запускается. Переподключаем...');
+      const idx = allChannels.indexOf(currentChannel);
+      if (idx !== -1) playChannel(idx);
+    }
+  }, 10000);
+}
 
 // ─── M3U LOADING ──────────────────────────────────────────────────────────────
 async function loadPlaylist() {
@@ -246,6 +294,7 @@ function playChannel(idx) {
   // Stop previous
   destroyPlayer();
   showBuffering(true);
+  startStartupWatchdog();
 
   const url = ch.url;
   const ext = url.split('?')[0].split('.').pop().toLowerCase();
@@ -263,7 +312,7 @@ function playChannel(idx) {
 }
 
 function playHLS(url) {
-  if (Hls.isSupported()) {
+  if (window.Hls && Hls.isSupported()) {
     hlsInstance = new Hls({
       enableWorker: true,
       lowLatencyMode: true,
@@ -297,7 +346,7 @@ function playHLS(url) {
 }
 
 function playDASH(url) {
-  if (typeof dashjs !== 'undefined') {
+  if (window.dashjs) {
     dashPlayer = dashjs.MediaPlayer().create();
     dashPlayer.initialize(video, url, true);
     dashPlayer.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
@@ -366,7 +415,7 @@ function changeQuality() {
 
 // ─── VIDEO EVENTS ─────────────────────────────────────────────────────────────
 function setupVideoEvents() {
-  video.addEventListener('playing', () => { showBuffering(false); playBtn.textContent = '⏸'; });
+  video.addEventListener('playing', () => { showBuffering(false); clearTimeout(startupWatchdog); playBtn.textContent = '⏸'; });
   video.addEventListener('pause', () => { playBtn.textContent = '▶'; });
   video.addEventListener('waiting', () => showBuffering(true));
   video.addEventListener('canplay', () => showBuffering(false));

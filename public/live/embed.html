@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SmartTVLove — Embed Player</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://cdn.dashjs.org" crossorigin>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
 <style>
@@ -124,6 +126,19 @@ const chLogo = params.get('logo') || '';
 
 const vid = document.getElementById('vid');
 let hls, dash;
+let watchdogTimer = null;
+let retryCount = 0;
+const MAX_RETRIES = 2;
+
+const HLS_CDNS = [
+  'https://cdn.jsdelivr.net/npm/hls.js@latest',
+  'https://unpkg.com/hls.js@latest/dist/hls.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.17/hls.min.js'
+];
+const DASH_CDNS = [
+  'https://cdn.dashjs.org/latest/dash.all.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/dashjs/4.7.4/dash.all.min.js'
+];
 
 document.getElementById('chName').textContent = chName;
 document.title = chName + ' — SmartTVLove by StreamLIVETV';
@@ -135,14 +150,43 @@ if (chLogo) {
   logo.onerror = () => logo.className = 'ch-logo';
 }
 
-function init() {
+function loadScriptWithFallback(urls, checker) {
+  if (checker()) return Promise.resolve(true);
+  const [first, ...rest] = urls;
+  if (!first) return Promise.resolve(false);
+
+  return new Promise(resolve => {
+    const s = document.createElement('script');
+    s.src = first;
+    s.async = true;
+    s.crossOrigin = 'anonymous';
+    s.onload = () => resolve(checker());
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  }).then(ok => ok ? true : loadScriptWithFallback(rest, checker));
+}
+
+async function ensurePlaybackEngines() {
+  const [hlsReady, dashReady] = await Promise.all([
+    loadScriptWithFallback(HLS_CDNS, () => typeof window.Hls !== 'undefined'),
+    loadScriptWithFallback(DASH_CDNS, () => typeof window.dashjs !== 'undefined')
+  ]);
+
+  if (!hlsReady) console.warn('HLS engine was not loaded from CDNs');
+  if (!dashReady) console.warn('DASH engine was not loaded from CDNs');
+}
+
+async function init() {
+  cleanupPlayers();
   document.getElementById('errMsg').style.display = 'none';
   if (!streamUrl) {
     document.getElementById('errText').textContent = 'URL потока не указан';
     document.getElementById('errMsg').style.display = 'flex';
     return;
   }
+
   showSpin(true);
+  await ensurePlaybackEngines();
 
   const ext = streamUrl.split('?')[0].split('.').pop().toLowerCase();
   if (streamUrl.includes('.m3u8') || streamUrl.includes('hls') || ext === 'm3u8' || ext === 'm3u') {
@@ -150,37 +194,95 @@ function init() {
   } else if (streamUrl.includes('.mpd') || ext === 'mpd') {
     playDASH(streamUrl);
   } else {
-    vid.src = streamUrl;
-    vid.play().catch(() => showErr('Не удалось воспроизвести поток'));
+    playNative(streamUrl);
   }
+
+  startWatchdog();
 }
 
 function playHLS(url) {
-  if (Hls.isSupported()) {
-    hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+  if (window.Hls && Hls.isSupported()) {
+    hls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: true,
+      backBufferLength: 60,
+      maxBufferLength: 20,
+      manifestLoadingTimeOut: 15000,
+      fragLoadingTimeOut: 20000
+    });
     hls.loadSource(url);
     hls.attachMedia(vid);
     hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
-      buildQ(data.levels);
+      buildQ(data.levels || []);
       vid.play().catch(() => {});
       document.getElementById('liveBadge').style.display = 'inline';
     });
     hls.on(Hls.Events.ERROR, (_, d) => {
-      if (d.fatal) showErr('Ошибка HLS: ' + (d.details || ''));
+      if (!d.fatal) return;
+      if (d.type === Hls.ErrorTypes.NETWORK_ERROR) {
+        hls.startLoad();
+      } else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) {
+        hls.recoverMediaError();
+      } else {
+        recoverWithRetry('Ошибка HLS: ' + (d.details || 'неизвестно'));
+      }
     });
   } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
-    vid.src = url;
-    vid.play().catch(() => {});
+    playNative(url);
+  } else {
+    showErr('HLS не поддерживается в этом браузере');
   }
 }
 
 function playDASH(url) {
-  if (typeof dashjs !== 'undefined') {
+  if (window.dashjs) {
     dash = dashjs.MediaPlayer().create();
+    dash.updateSettings({
+      streaming: {
+        lowLatencyEnabled: true,
+        fastSwitchEnabled: true,
+        retryIntervals: { MPD: 1000, Fragment: 1000 },
+        retryAttempts: { MPD: 3, Fragment: 3 }
+      }
+    });
     dash.initialize(vid, url, true);
+    dash.on(dashjs.MediaPlayer.events.ERROR, () => recoverWithRetry('Ошибка DASH потока'));
   } else {
-    vid.src = url; vid.play().catch(() => {});
+    playNative(url);
   }
+}
+
+function playNative(url) {
+  vid.src = url;
+  vid.preload = 'auto';
+  vid.play().catch(() => recoverWithRetry('Не удалось воспроизвести поток'));
+}
+
+function cleanupPlayers() {
+  clearTimeout(watchdogTimer);
+  if (hls) { hls.destroy(); hls = null; }
+  if (dash) { dash.reset(); dash = null; }
+  vid.removeAttribute('src');
+  vid.load();
+}
+
+function recoverWithRetry(message) {
+  if (retryCount < MAX_RETRIES) {
+    retryCount += 1;
+    showSpin(true);
+    setTimeout(() => init(), 900 * retryCount);
+    return;
+  }
+  showErr(message);
+}
+
+function startWatchdog() {
+  clearTimeout(watchdogTimer);
+  watchdogTimer = setTimeout(() => {
+    if (vid.readyState < 2 || vid.currentTime === 0) {
+      recoverWithRetry('Поток долго не стартует (возможна блокировка CDN/провайдера)');
+    }
+  }, 10000);
 }
 
 function buildQ(levels) {
@@ -203,7 +305,7 @@ function setQuality() {
   }
 }
 
-vid.addEventListener('playing', () => { showSpin(false); document.getElementById('playB').textContent = '⏸'; });
+vid.addEventListener('playing', () => { showSpin(false); clearTimeout(watchdogTimer); document.getElementById('playB').textContent = '⏸'; });
 vid.addEventListener('pause', () => document.getElementById('playB').textContent = '▶');
 vid.addEventListener('waiting', () => showSpin(true));
 vid.addEventListener('canplay', () => showSpin(false));
@@ -233,6 +335,7 @@ function showErr(msg) {
   document.getElementById('errMsg').style.display = 'flex';
 }
 
+window.addEventListener('beforeunload', cleanupPlayers);
 init();
 </script>
 </body>
